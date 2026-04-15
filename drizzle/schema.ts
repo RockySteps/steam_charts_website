@@ -52,6 +52,8 @@ export const gameCache = mysqlTable("game_cache", {
   ownersMin: bigint("owners_min", { mode: "number" }).default(0),
   ownersMax: bigint("owners_max", { mode: "number" }).default(0),
   ccu: int("ccu").default(0),
+  prevCcu: int("prev_ccu").default(0),          // previous snapshot for gain/loss calculation
+  ccuUpdatedAt: timestamp("ccu_updated_at"),    // when ccu was last updated
   scoreRank: varchar("score_rank", { length: 32 }),
   // Steam review details from official API
   reviewSummary: varchar("review_summary", { length: 256 }),

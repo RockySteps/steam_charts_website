@@ -151,6 +151,65 @@ export async function getRecentlyUpdatedGames(limit = 10) {
   return db.select().from(gameCache).orderBy(desc(gameCache.lastUpdated)).limit(limit);
 }
 
+/**
+ * Returns games with the biggest absolute player count change (ccu - prevCcu).
+ * type: 'gainers' | 'losers' | 'all'
+ */
+export async function getTrendingNow(opts: {
+  type?: "gainers" | "losers" | "all";
+  limit?: number;
+  minCcu?: number;
+}) {
+  const db = await getDb();
+  if (!db) return [];
+
+  // Only include games that have been updated recently (have a prevCcu snapshot)
+  const minCcu = opts.minCcu ?? 50;
+  const limit = opts.limit ?? 20;
+
+  const games = await db.select().from(gameCache)
+    .where(gte(gameCache.ccu, minCcu))
+    .orderBy(desc(gameCache.ccu))
+    .limit(500); // fetch top 500 by CCU, then compute change
+
+  // Compute absolute and percent change
+  const withChange = games.map((g) => {
+    const prev = g.prevCcu ?? 0;
+    const curr = g.ccu ?? 0;
+    const change = curr - prev;
+    const changePct = prev > 0 ? (change / prev) * 100 : 0;
+    return { ...g, change, changePct };
+  });
+
+  // Filter by type
+  const filtered = opts.type === "gainers"
+    ? withChange.filter((g) => g.change > 0)
+    : opts.type === "losers"
+      ? withChange.filter((g) => g.change < 0)
+      : withChange;
+
+  // Sort gainers by biggest gain, losers by biggest loss
+  if (opts.type === "losers") {
+    filtered.sort((a, b) => a.change - b.change);
+  } else {
+    filtered.sort((a, b) => b.change - a.change);
+  }
+
+  return filtered.slice(0, limit);
+}
+
+/**
+ * Update prevCcu for a game before writing new ccu value.
+ * Called by the crawler before updating current player count.
+ */
+export async function updatePrevCcu(appid: number, currentCcu: number): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(gameCache)
+    .set({ prevCcu: currentCcu, ccuUpdatedAt: new Date() })
+    .where(eq(gameCache.appid, appid));
+}
+
 // ─── Player History Helpers ────────────────────────────────────────────────────
 
 export async function recordPlayerCount(appid: number, players: number): Promise<void> {

@@ -10,6 +10,7 @@ import StatCard from "@/components/StatCard";
 import GameCard from "@/components/GameCard";
 import AdZone from "@/components/AdZone";
 import SEOHead from "@/components/SEOHead";
+import TrendingNowSection from "@/components/TrendingNowSection";
 import { formatNumber, formatCommas, getHeaderImage } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 
@@ -355,6 +356,11 @@ export default function Home() {
                 ))
             }
           </div>
+        </section>
+
+        {/* ─── Currently Trending ─────────────────────────────────────────── */}
+        <section className="container py-8">
+          <TrendingNowSection limit={10} showHeader={true} />
         </section>
 
         {/* ─── Ad Banner ─────────────────────────────────────────────────────── */}

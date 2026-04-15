@@ -255,3 +255,83 @@ describe("games.getReviews", () => {
     expect(Array.isArray(result.reviews)).toBe(true);
   }, 15000);
 });
+
+// ─── Trending Now ─────────────────────────────────────────────────────────────
+
+describe("games.getTrendingNow", () => {
+  it("returns an array for gainers type", async () => {
+    const caller = appRouter.createCaller(createPublicContext());
+    const result = await caller.games.getTrendingNow({ type: "gainers", limit: 10, minCcu: 0 });
+    expect(Array.isArray(result)).toBe(true);
+  });
+
+  it("returns an array for losers type", async () => {
+    const caller = appRouter.createCaller(createPublicContext());
+    const result = await caller.games.getTrendingNow({ type: "losers", limit: 10, minCcu: 0 });
+    expect(Array.isArray(result)).toBe(true);
+  });
+
+  it("returns an array for all type", async () => {
+    const caller = appRouter.createCaller(createPublicContext());
+    const result = await caller.games.getTrendingNow({ type: "all", limit: 20, minCcu: 0 });
+    expect(Array.isArray(result)).toBe(true);
+  });
+
+  it("respects the limit parameter", async () => {
+    const caller = appRouter.createCaller(createPublicContext());
+    const result = await caller.games.getTrendingNow({ type: "all", limit: 5, minCcu: 0 });
+    expect(result.length).toBeLessThanOrEqual(5);
+  });
+
+  it("each item has the required shape", async () => {
+    const caller = appRouter.createCaller(createPublicContext());
+    const result = await caller.games.getTrendingNow({ type: "all", limit: 5, minCcu: 0 });
+    if (result.length > 0) {
+      const item = result[0]!;
+      expect(item).toHaveProperty("rank");
+      expect(item).toHaveProperty("appid");
+      expect(item).toHaveProperty("name");
+      expect(item).toHaveProperty("ccu");
+      expect(item).toHaveProperty("prevCcu");
+      expect(item).toHaveProperty("change");
+      expect(item).toHaveProperty("changePct");
+      expect(item).toHaveProperty("headerImage");
+      expect(typeof item.rank).toBe("number");
+      expect(typeof item.appid).toBe("number");
+      expect(typeof item.change).toBe("number");
+      expect(typeof item.changePct).toBe("number");
+    }
+  });
+
+  it("gainers have non-negative change values", async () => {
+    const caller = appRouter.createCaller(createPublicContext());
+    const result = await caller.games.getTrendingNow({ type: "gainers", limit: 20, minCcu: 0 });
+    for (const item of result) {
+      expect(item.change).toBeGreaterThanOrEqual(0);
+    }
+  });
+
+  it("losers have non-positive change values", async () => {
+    const caller = appRouter.createCaller(createPublicContext());
+    const result = await caller.games.getTrendingNow({ type: "losers", limit: 20, minCcu: 0 });
+    for (const item of result) {
+      expect(item.change).toBeLessThanOrEqual(0);
+    }
+  });
+
+  it("ranks are sequential starting from 1", async () => {
+    const caller = appRouter.createCaller(createPublicContext());
+    const result = await caller.games.getTrendingNow({ type: "all", limit: 10, minCcu: 0 });
+    result.forEach((item, idx) => {
+      expect(item.rank).toBe(idx + 1);
+    });
+  });
+
+  it("is accessible without authentication (public procedure)", async () => {
+    // Should not throw UNAUTHORIZED
+    const caller = appRouter.createCaller(createPublicContext());
+    await expect(
+      caller.games.getTrendingNow({ type: "gainers", limit: 5, minCcu: 0 })
+    ).resolves.toBeDefined();
+  });
+});

@@ -152,3 +152,16 @@
 - [x] tRPC: games.getMonthlyStats - monthly aggregated player stats
 - [x] tRPC: games.getReviews - official Steam user reviews
 - [x] 13 vitest tests passing, 0 TypeScript errors
+
+## Currently Trending Section (Phase 3)
+- [x] Backend: store previous player count snapshot per game (prev_ccu column in game_cache)
+- [x] Backend: calculate real gain/loss (current ccu - prevCcu) and percent changee
+- [x] tRPC: games.getTrendingNow - returns top gainers and losers sorted by absolute/percent change
+- [x] TrendingSection component: tabbed Gainers / Losers view
+- [x] TrendingSection: mini sparkline chart per game (last 7 data points)
+- [x] TrendingSection: player count change badge (+X / -X with color coding)
+- [x] TrendingSection: percent change indicator with up/down arrow
+- [x] TrendingSection: live pulse dot on top gainers
+- [x] Integrate TrendingSection on Homepage (replace or augment existing trending block)
+- [x] Integrate TrendingSection on Trending page (top of page, above all-time records)
+- [x] Vitest tests for getTrendingNow endpoint

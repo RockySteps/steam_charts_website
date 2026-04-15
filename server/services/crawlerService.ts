@@ -15,7 +15,8 @@ import {
   getTopGamesByPlayers, markCrawlDone, markCrawlFailed,
   markCrawlProcessing, resetStaleCrawls, seedCrawlQueue,
   setPriorityForAppids, updateCrawlLog, upsertGameCache,
-  upsertMonthlyStats, recordPlayerCount, getPlayerHistory
+  upsertMonthlyStats, recordPlayerCount, getPlayerHistory,
+  updatePrevCcu, getGameByAppid
 } from "../db";
 import { getAppDetails as getSteamAppDetails, getCurrentPlayers } from "./steamApi";
 import { getAppDetails as getSteamSpyAppDetails } from "./steamSpyApi";
@@ -234,6 +235,12 @@ export async function crawlSingleGame(appid: number): Promise<boolean> {
 
     // Fetch live player count
     const livePlayerCount = await getCurrentPlayers(appid).catch(() => 0);
+
+    // Snapshot current ccu as prevCcu before overwriting (for trending calculation)
+    const existingGame = await getGameByAppid(appid);
+    if (existingGame && (existingGame.ccu ?? 0) > 0) {
+      await updatePrevCcu(appid, existingGame.ccu ?? 0);
+    }
 
     if (!spyData && !steamData) {
       await markCrawlFailed(appid, "No data from either API");

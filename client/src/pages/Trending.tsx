@@ -1,16 +1,16 @@
 import { Link } from "wouter";
-import { Trophy, TrendingUp, TrendingDown, Flame, Award, ChevronUp, ChevronDown, RefreshCw } from "lucide-react";
+import { Trophy, Flame, Award, RefreshCw } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import AdZone from "@/components/AdZone";
 import SEOHead from "@/components/SEOHead";
+import TrendingNowSection from "@/components/TrendingNowSection";
 import { formatNumber, formatCommas, getHeaderImage } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 
 export default function Trending() {
   const { data: records, isLoading, refetch: refetchRecords } = trpc.games.getRecords.useQuery();
-  const { data: trending, refetch: refetchTrending } = trpc.games.getTrending.useQuery({ limit: 20 });
   const refreshData = trpc.games.refreshData.useMutation({
-    onSuccess: () => setTimeout(() => { refetchRecords(); refetchTrending(); }, 3000),
+    onSuccess: () => setTimeout(() => { refetchRecords(); }, 3000),
   });
 
   return (
@@ -40,6 +40,11 @@ export default function Trending() {
         </div>
 
         <AdZone size="leaderboard" className="mb-8" />
+
+        {/* Currently Trending — real player count changes */}
+        <section id="trending-now" className="mb-12">
+          <TrendingNowSection limit={15} showHeader={true} />
+        </section>
 
         {/* All-Time Records */}
         <section id="records" className="mb-12">
@@ -123,89 +128,6 @@ export default function Trending() {
         </section>
 
         <AdZone size="banner" className="mb-8" />
-
-        {/* Trending / Gainers */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
-          {/* Top Gainers */}
-          <section id="gainers">
-            <div className="flex items-center gap-3 mb-5">
-              <div className="p-2 rounded-lg bg-[oklch(0.72_0.2_145/0.1)]">
-                <TrendingUp className="w-5 h-5 text-[oklch(0.72_0.2_145)]" />
-              </div>
-              <div>
-                <h2 className="font-display text-xl font-bold text-white">Top Gainers</h2>
-                <p className="text-xs text-[oklch(0.5_0.02_260)]">Biggest player count increases</p>
-              </div>
-            </div>
-            <div className="space-y-2">
-              {(trending ?? []).slice(0, 10).map((game, idx) => {
-                const change = Math.abs((game.appid % 30) + 5) * 1.5;
-                return (
-                  <Link key={game.appid} href={`/game/${game.appid}`}>
-                    <div className="flex items-center gap-3 p-3 rounded-lg bg-[oklch(0.11_0.015_260)] border border-[oklch(0.18_0.015_260)] hover:border-[oklch(0.72_0.2_145/0.3)] hover:bg-[oklch(0.12_0.015_260)] transition-all cursor-pointer group">
-                      <span className="rank-badge text-[oklch(0.42_0.02_260)] w-5 text-center shrink-0">{idx + 1}</span>
-                      <img
-                        src={game.headerImage ?? getHeaderImage(game.appid)}
-                        alt={game.name}
-                        className="w-14 h-8 rounded object-cover shrink-0"
-                        loading="lazy"
-                        onError={(e) => { (e.target as HTMLImageElement).src = getHeaderImage(game.appid); }}
-                      />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-white truncate group-hover:text-[oklch(0.62_0.22_250)] transition-colors">{game.name}</p>
-                        <p className="text-xs text-[oklch(0.42_0.02_260)]">{formatNumber(game.ccu)} playing</p>
-                      </div>
-                      <div className="flex items-center gap-1 shrink-0">
-                        <ChevronUp className="w-4 h-4 text-[oklch(0.72_0.2_145)]" />
-                        <span className="text-sm font-mono font-semibold text-[oklch(0.72_0.2_145)]">+{change.toFixed(1)}%</span>
-                      </div>
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
-          </section>
-
-          {/* Top Losers */}
-          <section id="losers">
-            <div className="flex items-center gap-3 mb-5">
-              <div className="p-2 rounded-lg bg-[oklch(0.62_0.22_25/0.1)]">
-                <TrendingDown className="w-5 h-5 text-[oklch(0.62_0.22_25)]" />
-              </div>
-              <div>
-                <h2 className="font-display text-xl font-bold text-white">Top Losers</h2>
-                <p className="text-xs text-[oklch(0.5_0.02_260)]">Biggest player count decreases</p>
-              </div>
-            </div>
-            <div className="space-y-2">
-              {(records?.currentTopPlayers ?? []).slice(0, 10).map((game, idx) => {
-                const change = -Math.abs(((game.appid + 17) % 25) + 3) * 1.2;
-                return (
-                  <Link key={game.appid} href={`/game/${game.appid}`}>
-                    <div className="flex items-center gap-3 p-3 rounded-lg bg-[oklch(0.11_0.015_260)] border border-[oklch(0.18_0.015_260)] hover:border-[oklch(0.62_0.22_25/0.3)] hover:bg-[oklch(0.12_0.015_260)] transition-all cursor-pointer group">
-                      <span className="rank-badge text-[oklch(0.42_0.02_260)] w-5 text-center shrink-0">{idx + 1}</span>
-                      <img
-                        src={game.headerImage ?? getHeaderImage(game.appid)}
-                        alt={game.name}
-                        className="w-14 h-8 rounded object-cover shrink-0"
-                        loading="lazy"
-                        onError={(e) => { (e.target as HTMLImageElement).src = getHeaderImage(game.appid); }}
-                      />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-white truncate group-hover:text-[oklch(0.62_0.22_250)] transition-colors">{game.name}</p>
-                        <p className="text-xs text-[oklch(0.42_0.02_260)]">{formatNumber(game.ccu)} playing</p>
-                      </div>
-                      <div className="flex items-center gap-1 shrink-0">
-                        <ChevronDown className="w-4 h-4 text-[oklch(0.62_0.22_25)]" />
-                        <span className="text-sm font-mono font-semibold text-[oklch(0.62_0.22_25)]">{change.toFixed(1)}%</span>
-                      </div>
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
-          </section>
-        </div>
 
         {/* Notable Milestones */}
         <section className="mb-8">

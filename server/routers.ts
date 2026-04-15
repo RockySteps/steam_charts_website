@@ -16,6 +16,7 @@ import {
   getCrawlQueueStats,
   getCrawlQueuePage,
   searchGames,
+  getTrendingNow,
 } from "./db";
 import { getAppDetails as getSteamAppDetails, getCurrentPlayers } from "./services/steamApi";
 import { getAppDetails as getSteamSpyDetails, getGamesByGenre } from "./services/steamSpyApi";
@@ -101,6 +102,38 @@ export const appRouter = router({
       .input(z.object({ limit: z.number().min(1).max(20).default(10) }))
       .query(async ({ input }) => {
         return getTopGamesByPlayers(input.limit);
+      }),
+
+    /**
+     * Currently trending games based on real player count changes (ccu vs prevCcu)
+     */
+    getTrendingNow: publicProcedure
+      .input(z.object({
+        type: z.enum(["gainers", "losers", "all"]).default("gainers"),
+        limit: z.number().min(1).max(50).default(15),
+        minCcu: z.number().min(0).default(50),
+      }))
+      .query(async ({ input }) => {
+        const games = await getTrendingNow({
+          type: input.type,
+          limit: input.limit,
+          minCcu: input.minCcu,
+        });
+        return games.map((g, idx) => ({
+          rank: idx + 1,
+          appid: g.appid,
+          name: g.name,
+          headerImage: g.headerImage ?? `https://cdn.cloudflare.steamstatic.com/steam/apps/${g.appid}/header.jpg`,
+          ccu: g.ccu ?? 0,
+          prevCcu: g.prevCcu ?? 0,
+          change: g.change,
+          changePct: Math.round(g.changePct * 10) / 10,
+          genre: g.genre ?? "",
+          reviewScore: g.reviewScore ?? 0,
+          reviewScoreDesc: g.reviewScoreDesc ?? "",
+          peakPlayersAllTime: g.peakPlayersAllTime ?? 0,
+          ccuUpdatedAt: g.ccuUpdatedAt ?? null,
+        }));
       }),
 
     getStats: publicProcedure.query(async () => {
