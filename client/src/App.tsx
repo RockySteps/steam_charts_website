@@ -13,6 +13,7 @@ import Trending from "./pages/Trending";
 import Genres from "./pages/Genres";
 import Compare from "./pages/Compare";
 import SearchPage from "./pages/SearchPage";
+import AdminDashboard from "./pages/AdminDashboard";
 
 function Layout({ children }: { children: React.ReactNode }) {
   return (
@@ -36,6 +37,7 @@ function Router() {
       <Route path="/genres" component={() => <Layout><Genres /></Layout>} />
       <Route path="/compare" component={() => <Layout><Compare /></Layout>} />
       <Route path="/search" component={() => <Layout><SearchPage /></Layout>} />
+      <Route path="/admin" component={() => <Layout><AdminDashboard /></Layout>} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>

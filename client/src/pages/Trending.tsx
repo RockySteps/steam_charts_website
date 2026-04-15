@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { Trophy, TrendingUp, TrendingDown, Flame, Award, ChevronUp, ChevronDown } from "lucide-react";
+import { Trophy, TrendingUp, TrendingDown, Flame, Award, ChevronUp, ChevronDown, RefreshCw } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import AdZone from "@/components/AdZone";
 import SEOHead from "@/components/SEOHead";
@@ -7,8 +7,11 @@ import { formatNumber, formatCommas, getHeaderImage } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 
 export default function Trending() {
-  const { data: records, isLoading } = trpc.games.getRecords.useQuery();
-  const { data: trending } = trpc.games.getTrending.useQuery({ limit: 20 });
+  const { data: records, isLoading, refetch: refetchRecords } = trpc.games.getRecords.useQuery();
+  const { data: trending, refetch: refetchTrending } = trpc.games.getTrending.useQuery({ limit: 20 });
+  const refreshData = trpc.games.refreshData.useMutation({
+    onSuccess: () => setTimeout(() => { refetchRecords(); refetchTrending(); }, 3000),
+  });
 
   return (
     <>
@@ -23,7 +26,17 @@ export default function Trending() {
           <h1 className="font-display text-4xl font-bold text-white mb-2">
             Trending & <span className="gradient-text-gold">Records</span>
           </h1>
-          <p className="text-[oklch(0.55_0.02_260)]">All-time peaks, biggest gainers, and notable milestones.</p>
+          <div className="flex items-center gap-3 mt-3">
+            <p className="text-[oklch(0.55_0.02_260)]">All-time peaks, biggest gainers, and notable milestones.</p>
+            <button
+              onClick={() => refreshData.mutate()}
+              disabled={refreshData.isPending}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-600 text-slate-400 hover:text-white hover:border-indigo-500 transition-all bg-transparent"
+            >
+              <RefreshCw className={cn("w-3 h-3", refreshData.isPending && "animate-spin")} />
+              {refreshData.isPending ? "Updating..." : "Update Data"}
+            </button>
+          </div>
         </div>
 
         <AdZone size="leaderboard" className="mb-8" />

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
-import { Search, Menu, X, TrendingUp, BarChart2, Gamepad2, GitCompare, Layers, Flame } from "lucide-react";
+import { Search, Menu, X, TrendingUp, BarChart2, Gamepad2, GitCompare, Layers, Flame, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -85,6 +85,20 @@ export default function Navbar() {
             ))}
           </nav>
 
+          {/* Admin Link */}
+          <Link
+            href="/admin"
+            className={cn(
+              "hidden lg:flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200",
+              location === "/admin"
+                ? "text-[oklch(0.62_0.22_250)] bg-[oklch(0.62_0.22_250/0.1)]"
+                : "text-[oklch(0.65_0.02_260)] hover:text-white hover:bg-[oklch(0.16_0.02_260)]"
+            )}
+          >
+            <Settings className="w-3.5 h-3.5" />
+            Admin
+          </Link>
+
           {/* Desktop Search */}
           <form onSubmit={handleSearch} className="hidden lg:flex items-center gap-2">
             <div className="relative">
@@ -141,6 +155,18 @@ export default function Navbar() {
                 {label}
               </Link>
             ))}
+            <Link
+              href="/admin"
+              className={cn(
+                "flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200",
+                location === "/admin"
+                  ? "text-[oklch(0.62_0.22_250)] bg-[oklch(0.62_0.22_250/0.1)]"
+                  : "text-[oklch(0.65_0.02_260)] hover:text-white hover:bg-[oklch(0.16_0.02_260)]"
+              )}
+            >
+              <Settings className="w-4 h-4" />
+              Admin
+            </Link>
           </div>
         </div>
       )}

@@ -1,58 +1,42 @@
 import { useState } from "react";
 import { useParams, Link } from "wouter";
 import {
-  Users, TrendingUp, Star, ExternalLink, Tag, Monitor,
+  Users, Star, ExternalLink, Tag, Monitor,
   Apple, Globe, Calendar, Trophy, Clock, BarChart2,
-  ChevronLeft, DollarSign, Gamepad2
+  ChevronLeft, Gamepad2, RefreshCw, MessageSquare, Table2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, ReferenceLine
-} from "recharts";
 import { trpc } from "@/lib/trpc";
 import AdZone from "@/components/AdZone";
 import SEOHead from "@/components/SEOHead";
 import StatCard from "@/components/StatCard";
+import HighchartsPlayerChart from "@/components/HighchartsPlayerChart";
+import MonthlyStatsTable from "@/components/MonthlyStatsTable";
+import SteamReviews from "@/components/SteamReviews";
 import {
   formatNumber, formatCommas, formatPrice, formatPlaytime,
   formatDate, getSteamStoreUrl, getPositivePercent, getHeaderImage
 } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 
-type Period = "daily" | "weekly" | "monthly" | "yearly";
-
-const PERIOD_LABELS: Record<Period, string> = {
-  daily: "Last 30 Days",
-  weekly: "Last 12 Weeks",
-  monthly: "Last 12 Months",
-  yearly: "Last 3 Years",
-};
-
-function CustomTooltip({ active, payload, label }: { active?: boolean; payload?: { value: number }[]; label?: string }) {
-  if (!active || !payload?.length) return null;
-  const date = label ? new Date(Number(label)) : null;
-  return (
-    <div className="bg-[oklch(0.14_0.015_260)] border border-[oklch(0.25_0.02_260)] rounded-lg p-3 shadow-xl">
-      <p className="text-xs text-[oklch(0.5_0.02_260)] mb-1">
-        {date?.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-      </p>
-      <p className="text-base font-mono font-bold text-[oklch(0.62_0.22_250)]">
-        {formatCommas(payload[0]?.value)}
-      </p>
-      <p className="text-xs text-[oklch(0.45_0.02_260)]">players</p>
-    </div>
-  );
-}
+type DetailTab = "chart" | "monthly" | "reviews";
 
 export default function GameDetail() {
   const params = useParams<{ appid: string }>();
   const appid = parseInt(params.appid ?? "0", 10);
-  const [period, setPeriod] = useState<Period>("weekly");
+  const [activeTab, setActiveTab] = useState<DetailTab>("chart");
 
-  const { data: game, isLoading: gameLoading } = trpc.games.getGameDetail.useQuery({ appid });
-  const { data: history, isLoading: historyLoading } = trpc.games.getPlayerHistory.useQuery({ appid, period });
+  const { data: game, isLoading: gameLoading, refetch: refetchGame } = trpc.games.getGameDetail.useQuery({ appid });
   const { data: topGames } = trpc.games.getTrending.useQuery({ limit: 6 });
+  const triggerUpdate = trpc.games.triggerUpdate.useMutation();
+
+  const handleUpdateData = () => {
+    triggerUpdate.mutate({ appid }, {
+      onSuccess: () => {
+        setTimeout(() => refetchGame(), 3000);
+      },
+    });
+  };
 
   if (!gameLoading && !game) {
     return (
@@ -72,14 +56,6 @@ export default function GameDetail() {
   const genres = game?.genre?.split(", ").filter(Boolean) ?? [];
   const screenshots = Array.isArray(game?.screenshots) ? game.screenshots as string[] : [];
   const platforms = game?.platforms as { windows?: boolean; mac?: boolean; linux?: boolean } | null;
-
-  // Format chart data
-  const chartData = (history ?? []).map((p) => ({
-    time: p.timestamp,
-    players: p.players,
-  }));
-
-  const maxPlayers = chartData.reduce((max, p) => Math.max(max, p.players), 0);
 
   return (
     <>
@@ -213,85 +189,83 @@ export default function GameDetail() {
           {/* Ad */}
           <AdZone size="leaderboard" className="mb-8" />
 
-          {/* Player History Chart */}
+          {/* Data Tabs: Chart / Monthly Stats / Reviews */}
           <div className="rounded-xl border border-[oklch(0.18_0.015_260)] bg-[oklch(0.10_0.012_260)] p-6 mb-8">
+            {/* Tab Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-              <div>
-                <h2 className="font-display text-xl font-bold text-white">Player Count History</h2>
-                <p className="text-sm text-[oklch(0.5_0.02_260)]">{PERIOD_LABELS[period]}</p>
+              <div className="flex gap-1 bg-slate-800/60 rounded-lg p-1 border border-slate-700/40">
+                <button
+                  onClick={() => setActiveTab("chart")}
+                  className={cn(
+                    "flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-semibold transition-all duration-200",
+                    activeTab === "chart"
+                      ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/25"
+                      : "text-slate-400 hover:text-slate-200 hover:bg-slate-700/50"
+                  )}
+                >
+                  <BarChart2 className="w-4 h-4" />
+                  Player Chart
+                </button>
+                <button
+                  onClick={() => setActiveTab("monthly")}
+                  className={cn(
+                    "flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-semibold transition-all duration-200",
+                    activeTab === "monthly"
+                      ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/25"
+                      : "text-slate-400 hover:text-slate-200 hover:bg-slate-700/50"
+                  )}
+                >
+                  <Table2 className="w-4 h-4" />
+                  Monthly Stats
+                </button>
+                <button
+                  onClick={() => setActiveTab("reviews")}
+                  className={cn(
+                    "flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-semibold transition-all duration-200",
+                    activeTab === "reviews"
+                      ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/25"
+                      : "text-slate-400 hover:text-slate-200 hover:bg-slate-700/50"
+                  )}
+                >
+                  <MessageSquare className="w-4 h-4" />
+                  User Reviews
+                </button>
               </div>
-              <div className="flex gap-2 flex-wrap">
-                {(Object.keys(PERIOD_LABELS) as Period[]).map((p) => (
-                  <button
-                    key={p}
-                    onClick={() => setPeriod(p)}
-                    className={cn(
-                      "px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
-                      period === p
-                        ? "bg-[oklch(0.62_0.22_250/0.15)] text-[oklch(0.62_0.22_250)] border border-[oklch(0.62_0.22_250/0.3)]"
-                        : "bg-[oklch(0.14_0.015_260)] text-[oklch(0.5_0.02_260)] border border-[oklch(0.2_0.015_260)] hover:text-white"
-                    )}
-                  >
-                    {p.charAt(0).toUpperCase() + p.slice(1)}
-                  </button>
-                ))}
-              </div>
+              {/* Update Data Button */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleUpdateData}
+                disabled={triggerUpdate.isPending}
+                className="flex items-center gap-2 border-slate-600 text-slate-300 hover:text-white hover:border-indigo-500 bg-transparent"
+              >
+                <RefreshCw className={cn("w-3.5 h-3.5", triggerUpdate.isPending && "animate-spin")} />
+                {triggerUpdate.isPending ? "Updating..." : "Update Data"}
+              </Button>
             </div>
 
-            {historyLoading ? (
-              <div className="shimmer h-64 rounded-lg" />
-            ) : (
-              <ResponsiveContainer width="100%" height={300}>
-                <AreaChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-                  <defs>
-                    <linearGradient id="playerGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="oklch(0.62 0.22 250)" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="oklch(0.62 0.22 250)" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.18 0.015 260)" vertical={false} />
-                  <XAxis
-                    dataKey="time"
-                    tickFormatter={(v) => {
-                      const d = new Date(v);
-                      if (period === "daily") return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-                      if (period === "weekly") return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-                      if (period === "monthly") return d.toLocaleDateString("en-US", { month: "short", year: "2-digit" });
-                      return d.getFullYear().toString();
-                    }}
-                    tick={{ fill: "oklch(0.45 0.02 260)", fontSize: 11 }}
-                    axisLine={false}
-                    tickLine={false}
-                    interval="preserveStartEnd"
-                  />
-                  <YAxis
-                    tickFormatter={(v) => formatNumber(v)}
-                    tick={{ fill: "oklch(0.45 0.02 260)", fontSize: 11 }}
-                    axisLine={false}
-                    tickLine={false}
-                    width={55}
-                  />
-                  <Tooltip content={<CustomTooltip />} />
-                  {maxPlayers > 0 && (
-                    <ReferenceLine
-                      y={maxPlayers}
-                      stroke="oklch(0.78 0.18 75)"
-                      strokeDasharray="4 4"
-                      strokeOpacity={0.6}
-                      label={{ value: `Peak: ${formatNumber(maxPlayers)}`, fill: "oklch(0.78 0.18 75)", fontSize: 11, position: "insideTopRight" }}
-                    />
-                  )}
-                  <Area
-                    type="monotone"
-                    dataKey="players"
-                    stroke="oklch(0.62 0.22 250)"
-                    strokeWidth={2}
-                    fill="url(#playerGradient)"
-                    dot={false}
-                    activeDot={{ r: 4, fill: "oklch(0.62 0.22 250)", stroke: "oklch(0.08 0.01 260)", strokeWidth: 2 }}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
+            {/* Tab Content */}
+            {activeTab === "chart" && (
+              <HighchartsPlayerChart
+                appid={appid}
+                gameName={game?.name ?? ""}
+                currentPlayers={game?.ccu ?? 0}
+                peakPlayers={game?.peakPlayersAllTime ?? 0}
+              />
+            )}
+
+            {activeTab === "monthly" && (
+              <MonthlyStatsTable appid={appid} />
+            )}
+
+            {activeTab === "reviews" && (
+              <SteamReviews
+                appid={appid}
+                reviewScore={game?.reviewScore ?? 0}
+                reviewScoreDesc={game?.reviewScoreDesc ?? ""}
+                totalReviews={game?.totalReviews ?? 0}
+                positiveReviews={game?.positiveReviews ?? 0}
+              />
             )}
           </div>
 

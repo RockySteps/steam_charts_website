@@ -122,3 +122,33 @@
 - [ ] User accounts: save favorite games, custom watchlists
 - [ ] Email/push notifications for player count milestones
 - [ ] API rate limiting and caching improvements
+
+## 13K Games Crawler & Admin Dashboard (Phase 2 - Complete)
+- [x] Parse uploaded apps.txt (13,511 app IDs, one per line) and seed crawl_queue table
+- [x] DB schema: crawl_queue table (appid, priority, status, last_crawled_at, retry_count)
+- [x] DB schema: crawl_log table (job_id, started_at, completed_at, total, success, failed)
+- [x] DB schema: monthly_stats table (appid, year, month, avg/peak/min/gain/gain_percent)
+- [x] Update crawlerService: top 100 by CCU get priority=100 (crawled first on startup)
+- [x] Remaining 13K games get priority=1 (crawled in batches, rate-limit safe)
+- [x] 24-hour auto-refresh scheduler for all games in database
+- [x] Batch crawler: process 10 games at a time with 1s delay between requests
+- [x] Admin Dashboard page (/admin)
+- [x] Admin: Crawler status panel (running/paused/idle, progress bar, games crawled/total)
+- [x] Admin: Start/Pause/Resume/Stop crawler controls
+- [x] Admin: Database overview (total games, players online, processed today, queue remaining)
+- [x] Admin: Game Queue tab (paginated, filter by status, per-game refresh button)
+- [x] Admin: Crawl Logs tab (job history with success/fail counts, trigger type, timestamps)
+- [x] Admin: Overview tab (top games + crawler status details)
+- [x] Admin link added to Navbar (desktop + mobile)
+- [x] Highcharts integration on Game Detail page (replaces Recharts)
+- [x] PNG / SVG / Print export via Highcharts exporting module
+- [x] Monthly Stats table (Month, Avg Players, Gain, % Gain, Peak Players)
+- [x] Steam user reviews from official Steam API (all/positive/negative/recent filters)
+- [x] Game Detail tabbed interface: Player Chart | Monthly Stats | User Reviews
+- [x] "Update Data" button on Game Detail page (triggers manual refresh)
+- [x] tRPC: admin.getCrawlerStatus, admin.getSiteStats, admin.getCrawlLogs, admin.getQueuePage
+- [x] tRPC: admin.startCrawler, admin.stopCrawler, admin.pauseCrawler, admin.resumeCrawler, admin.refreshGame
+- [x] tRPC: games.triggerUpdate - public endpoint for Update Data button
+- [x] tRPC: games.getMonthlyStats - monthly aggregated player stats
+- [x] tRPC: games.getReviews - official Steam user reviews
+- [x] 13 vitest tests passing, 0 TypeScript errors

@@ -17,7 +17,6 @@ export type InsertUser = typeof users.$inferInsert;
 
 /**
  * Cache for game metadata fetched from Steam/SteamSpy APIs
- * Refreshed every 24 hours to respect API rate limits
  */
 export const gameCache = mysqlTable("game_cache", {
   id: int("id").autoincrement().primaryKey(),
@@ -54,6 +53,9 @@ export const gameCache = mysqlTable("game_cache", {
   ownersMax: bigint("owners_max", { mode: "number" }).default(0),
   ccu: int("ccu").default(0),
   scoreRank: varchar("score_rank", { length: 32 }),
+  // Steam review details from official API
+  reviewSummary: varchar("review_summary", { length: 256 }),
+  reviewType: varchar("review_type", { length: 64 }),
   lastUpdated: timestamp("last_updated").defaultNow().onUpdateNow().notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
@@ -73,3 +75,64 @@ export const playerHistory = mysqlTable("player_history", {
 
 export type PlayerHistory = typeof playerHistory.$inferSelect;
 export type InsertPlayerHistory = typeof playerHistory.$inferInsert;
+
+/**
+ * Monthly aggregated player statistics per game
+ * Stores avg players, gain, % gain, peak players per calendar month
+ */
+export const monthlyStats = mysqlTable("monthly_stats", {
+  id: int("id").autoincrement().primaryKey(),
+  appid: int("appid").notNull(),
+  year: int("year").notNull(),
+  month: int("month").notNull(), // 1-12
+  avgPlayers: float("avg_players").default(0),
+  peakPlayers: int("peak_players").default(0),
+  minPlayers: int("min_players").default(0),
+  gain: float("gain").default(0),          // absolute gain vs previous month
+  gainPercent: float("gain_percent").default(0), // % gain vs previous month
+  dataPoints: int("data_points").default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+});
+
+export type MonthlyStats = typeof monthlyStats.$inferSelect;
+export type InsertMonthlyStats = typeof monthlyStats.$inferInsert;
+
+/**
+ * Crawl queue for 13K games — tracks which games need to be fetched/refreshed
+ */
+export const crawlQueue = mysqlTable("crawl_queue", {
+  id: int("id").autoincrement().primaryKey(),
+  appid: int("appid").notNull().unique(),
+  priority: int("priority").default(2).notNull(), // 1=high (top CCU), 2=normal
+  status: mysqlEnum("status", ["pending", "processing", "done", "failed"]).default("pending").notNull(),
+  retryCount: int("retry_count").default(0).notNull(),
+  lastCrawledAt: timestamp("last_crawled_at"),
+  nextCrawlAt: timestamp("next_crawl_at"),
+  errorMessage: text("error_message"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+});
+
+export type CrawlQueue = typeof crawlQueue.$inferSelect;
+export type InsertCrawlQueue = typeof crawlQueue.$inferInsert;
+
+/**
+ * Crawl job logs — records each crawl run's summary
+ */
+export const crawlLog = mysqlTable("crawl_log", {
+  id: int("id").autoincrement().primaryKey(),
+  jobId: varchar("job_id", { length: 64 }).notNull().unique(),
+  startedAt: timestamp("started_at").defaultNow().notNull(),
+  completedAt: timestamp("completed_at"),
+  totalGames: int("total_games").default(0),
+  successCount: int("success_count").default(0),
+  failedCount: int("failed_count").default(0),
+  skippedCount: int("skipped_count").default(0),
+  status: mysqlEnum("status", ["running", "completed", "stopped", "failed"]).default("running").notNull(),
+  triggerType: mysqlEnum("trigger_type", ["startup", "scheduled", "manual", "admin"]).default("manual").notNull(),
+  notes: text("notes"),
+});
+
+export type CrawlLog = typeof crawlLog.$inferSelect;
+export type InsertCrawlLog = typeof crawlLog.$inferInsert;

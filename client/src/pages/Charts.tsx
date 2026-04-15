@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "wouter";
 import {
   ChevronUp, ChevronDown, Minus, Filter, ArrowUpDown,
-  Users, Trophy, Clock, TrendingUp, ExternalLink
+  Users, Trophy, Clock, TrendingUp, ExternalLink, RefreshCw
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -28,11 +28,15 @@ export default function Charts() {
   const [rowsPerPage] = useState(50);
   const [nameFilter, setNameFilter] = useState("");
 
-  const { data: games, isLoading } = trpc.games.getTopCharts.useQuery({
+  const { data: games, isLoading, refetch } = trpc.games.getTopCharts.useQuery({
     sortBy,
     limit: rowsPerPage,
     offset: page * rowsPerPage,
     genre: genreFilter || undefined,
+  });
+
+  const refreshData = trpc.games.refreshData.useMutation({
+    onSuccess: () => setTimeout(() => refetch(), 3000),
   });
 
   const filtered = games?.filter((g) =>
@@ -52,9 +56,19 @@ export default function Charts() {
           <h1 className="font-display text-4xl font-bold text-white mb-2">
             Top <span className="gradient-text">Steam Charts</span>
           </h1>
-          <p className="text-[oklch(0.55_0.02_260)]">
-            Live rankings of the most-played games on Steam. Updated hourly.
-          </p>
+          <div className="flex items-center gap-3 mt-3">
+            <p className="text-[oklch(0.55_0.02_260)]">
+              Live rankings of the most-played games on Steam. Updated hourly.
+            </p>
+            <button
+              onClick={() => refreshData.mutate()}
+              disabled={refreshData.isPending}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-600 text-slate-400 hover:text-white hover:border-indigo-500 transition-all bg-transparent"
+            >
+              <RefreshCw className={cn("w-3 h-3", refreshData.isPending && "animate-spin")} />
+              {refreshData.isPending ? "Updating..." : "Update Data"}
+            </button>
+          </div>
         </div>
 
         {/* Ad */}

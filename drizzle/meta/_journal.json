@@ -15,6 +15,13 @@
       "when": 1776223557069,
       "tag": "0001_keen_slayback",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1776244823478,
+      "tag": "0002_nappy_namorita",
+      "breakpoints": true
     }
   ]
 }
