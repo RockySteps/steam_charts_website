@@ -4,32 +4,48 @@ import NotFound from "@/pages/NotFound";
 import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
+import Navbar from "./components/Navbar";
+import Footer from "./components/Footer";
 import Home from "./pages/Home";
+import Charts from "./pages/Charts";
+import GameDetail from "./pages/GameDetail";
+import Trending from "./pages/Trending";
+import Genres from "./pages/Genres";
+import Compare from "./pages/Compare";
+import SearchPage from "./pages/SearchPage";
+
+function Layout({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="min-h-screen flex flex-col bg-[oklch(0.08_0.01_260)]">
+      <Navbar />
+      <main className="flex-1 pt-16">
+        {children}
+      </main>
+      <Footer />
+    </div>
+  );
+}
 
 function Router() {
-  // make sure to consider if you need authentication for certain routes
   return (
     <Switch>
-      <Route path={"/"} component={Home} />
-      <Route path={"/404"} component={NotFound} />
-      {/* Final fallback route */}
+      <Route path="/" component={() => <Layout><Home /></Layout>} />
+      <Route path="/charts" component={() => <Layout><Charts /></Layout>} />
+      <Route path="/game/:appid" component={() => <Layout><GameDetail /></Layout>} />
+      <Route path="/trending" component={() => <Layout><Trending /></Layout>} />
+      <Route path="/genres" component={() => <Layout><Genres /></Layout>} />
+      <Route path="/compare" component={() => <Layout><Compare /></Layout>} />
+      <Route path="/search" component={() => <Layout><SearchPage /></Layout>} />
+      <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>
   );
 }
 
-// NOTE: About Theme
-// - First choose a default theme according to your design style (dark or light bg), than change color palette in index.css
-//   to keep consistent foreground/background color across components
-// - If you want to make theme switchable, pass `switchable` ThemeProvider and use `useTheme` hook
-
 function App() {
   return (
     <ErrorBoundary>
-      <ThemeProvider
-        defaultTheme="light"
-        // switchable
-      >
+      <ThemeProvider defaultTheme="dark">
         <TooltipProvider>
           <Toaster />
           <Router />
