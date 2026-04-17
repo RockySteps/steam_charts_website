@@ -87,13 +87,14 @@ Highcharts.setOptions({
     sourceHeight: 500,
     scale: 2,
     menuItemDefinitions: {
-      downloadPNG: { text: "Download PNG" },
-      downloadSVG: { text: "Download SVG" },
-      printChart: { text: "Print Chart" },
+      downloadPNG: { text: "⬇ Download PNG" },
+      downloadJPEG: { text: "⬇ Download JPEG" },
+      downloadSVG: { text: "⬇ Download SVG" },
+      printChart: { text: "🖨 Print Chart" },
     },
     buttons: {
       contextButton: {
-        menuItems: ["downloadPNG", "downloadSVG", "separator", "printChart"],
+        menuItems: ["downloadPNG", "downloadJPEG", "downloadSVG", "separator", "printChart"],
         text: "",
         titleKey: "contextButtonTitle",
       },
@@ -237,8 +238,9 @@ export default function HighchartsPlayerChart({ appid, gameName, currentPlayers 
       }],
     },
     lang: {
-      contextButtonTitle: "Export chart",
+      contextButtonTitle: "Export / Download chart",
       downloadPNG: "Download PNG",
+      downloadJPEG: "Download JPEG",
       downloadSVG: "Download SVG",
       printChart: "Print chart",
     },

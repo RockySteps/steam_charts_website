@@ -1,15 +1,20 @@
 /**
  * MonthlyStatsTable
  * Displays monthly player statistics: Month, Avg Players, Gain, % Gain, Peak Players
- * Matches the style shown in the reference screenshot with green/red gain coloring
+ * Matches the style shown in the reference screenshot with green/red gain coloring.
+ * Columns are sortable by clicking the header.
  */
 
+import { useState } from "react";
 import { trpc } from "@/lib/trpc";
-import { TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 
 interface Props {
   appid: number;
 }
+
+type SortKey = "month" | "avgPlayers" | "gain" | "gainPercent" | "peakPlayers";
+type SortDir = "asc" | "desc";
 
 const MONTH_NAMES = [
   "", "January", "February", "March", "April", "May", "June",
@@ -37,11 +42,36 @@ function formatGainPct(n: number): string {
   return n >= 0 ? `+${formatted}%` : `-${formatted}%`;
 }
 
+interface SortIconProps {
+  col: SortKey;
+  sortKey: SortKey;
+  sortDir: SortDir;
+}
+
+function SortIcon({ col, sortKey, sortDir }: SortIconProps) {
+  if (col !== sortKey) return <ArrowUpDown className="w-3 h-3 text-slate-600 ml-1 inline-block" />;
+  return sortDir === "asc"
+    ? <ArrowUp className="w-3 h-3 text-indigo-400 ml-1 inline-block" />
+    : <ArrowDown className="w-3 h-3 text-indigo-400 ml-1 inline-block" />;
+}
+
 export default function MonthlyStatsTable({ appid }: Props) {
+  const [sortKey, setSortKey] = useState<SortKey>("month");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
+
   const { data, isLoading } = trpc.games.getMonthlyStats.useQuery(
-    { appid, limit: 24 },
+    { appid, limit: 36 },
     { staleTime: 10 * 60 * 1000 }
   );
+
+  function handleSort(col: SortKey) {
+    if (sortKey === col) {
+      setSortDir(d => d === "asc" ? "desc" : "asc");
+    } else {
+      setSortKey(col);
+      setSortDir("desc");
+    }
+  }
 
   if (isLoading) {
     return (
@@ -72,12 +102,38 @@ export default function MonthlyStatsTable({ appid }: Props) {
   const currentYear = now.getFullYear();
   const currentMonth = now.getMonth() + 1;
 
+  // Sort the data
+  const sorted = [...data].sort((a, b) => {
+    let diff = 0;
+    if (sortKey === "month") {
+      diff = (a.year * 12 + a.month) - (b.year * 12 + b.month);
+    } else if (sortKey === "avgPlayers") {
+      diff = a.avgPlayers - b.avgPlayers;
+    } else if (sortKey === "gain") {
+      diff = a.gain - b.gain;
+    } else if (sortKey === "gainPercent") {
+      diff = a.gainPercent - b.gainPercent;
+    } else if (sortKey === "peakPlayers") {
+      diff = a.peakPlayers - b.peakPlayers;
+    }
+    return sortDir === "asc" ? diff : -diff;
+  });
+
+  function thClass(col: SortKey) {
+    return `text-right px-4 py-2.5 text-xs font-semibold uppercase tracking-wider cursor-pointer select-none transition-colors hover:text-slate-200 ${
+      sortKey === col ? "text-indigo-400" : "text-slate-400"
+    }`;
+  }
+
   return (
     <div className="w-full overflow-hidden rounded-xl border border-slate-700/40 bg-slate-900/60">
       {/* Header */}
-      <div className="px-4 py-3 border-b border-slate-700/40 bg-slate-800/40">
-        <h3 className="text-sm font-semibold text-slate-200 tracking-wide">Monthly Player Statistics</h3>
-        <p className="text-xs text-slate-500 mt-0.5">Average concurrent players per calendar month</p>
+      <div className="px-4 py-3 border-b border-slate-700/40 bg-slate-800/40 flex items-center justify-between">
+        <div>
+          <h3 className="text-sm font-semibold text-slate-200 tracking-wide">Monthly Player Statistics</h3>
+          <p className="text-xs text-slate-500 mt-0.5">Average concurrent players per calendar month · Click any column header to sort</p>
+        </div>
+        <span className="text-xs text-slate-600 font-mono">{data.length} months</span>
       </div>
 
       {/* Table */}
@@ -85,15 +141,31 @@ export default function MonthlyStatsTable({ appid }: Props) {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-slate-700/40">
-              <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-400 uppercase tracking-wider w-40">Month</th>
-              <th className="text-right px-4 py-2.5 text-xs font-semibold text-slate-400 uppercase tracking-wider">Avg. Players</th>
-              <th className="text-right px-4 py-2.5 text-xs font-semibold text-slate-400 uppercase tracking-wider">Gain</th>
-              <th className="text-right px-4 py-2.5 text-xs font-semibold text-slate-400 uppercase tracking-wider">% Gain</th>
-              <th className="text-right px-4 py-2.5 text-xs font-semibold text-slate-400 uppercase tracking-wider">Peak Players</th>
+              {/* Month column */}
+              <th
+                className={`text-left px-4 py-2.5 text-xs font-semibold uppercase tracking-wider cursor-pointer select-none transition-colors hover:text-slate-200 w-40 ${
+                  sortKey === "month" ? "text-indigo-400" : "text-slate-400"
+                }`}
+                onClick={() => handleSort("month")}
+              >
+                Month <SortIcon col="month" sortKey={sortKey} sortDir={sortDir} />
+              </th>
+              <th className={thClass("avgPlayers")} onClick={() => handleSort("avgPlayers")}>
+                Avg. Players <SortIcon col="avgPlayers" sortKey={sortKey} sortDir={sortDir} />
+              </th>
+              <th className={thClass("gain")} onClick={() => handleSort("gain")}>
+                Gain <SortIcon col="gain" sortKey={sortKey} sortDir={sortDir} />
+              </th>
+              <th className={thClass("gainPercent")} onClick={() => handleSort("gainPercent")}>
+                % Gain <SortIcon col="gainPercent" sortKey={sortKey} sortDir={sortDir} />
+              </th>
+              <th className={thClass("peakPlayers")} onClick={() => handleSort("peakPlayers")}>
+                Peak Players <SortIcon col="peakPlayers" sortKey={sortKey} sortDir={sortDir} />
+              </th>
             </tr>
           </thead>
           <tbody>
-            {data.map((row, idx) => {
+            {sorted.map((row, idx) => {
               const isCurrentMonth = row.year === currentYear && row.month === currentMonth;
               const isPositive = row.gain > 0;
               const isNegative = row.gain < 0;
@@ -124,7 +196,7 @@ export default function MonthlyStatsTable({ appid }: Props) {
 
                   {/* Gain */}
                   <td className="px-4 py-2.5 text-right">
-                    {row.gain === 0 && idx === data.length - 1 ? (
+                    {row.gain === 0 && idx === sorted.length - 1 ? (
                       <span className="text-slate-500 font-mono">—</span>
                     ) : (
                       <span className={`font-mono font-semibold ${
@@ -137,7 +209,7 @@ export default function MonthlyStatsTable({ appid }: Props) {
 
                   {/* % Gain */}
                   <td className="px-4 py-2.5 text-right">
-                    {row.gainPercent === 0 && idx === data.length - 1 ? (
+                    {row.gainPercent === 0 && idx === sorted.length - 1 ? (
                       <span className="text-slate-500 font-mono">—</span>
                     ) : (
                       <div className="flex items-center justify-end gap-1">

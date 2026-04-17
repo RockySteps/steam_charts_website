@@ -18,7 +18,7 @@ import {
   searchGames,
   getTrendingNow,
 } from "./db";
-import { getAppDetails as getSteamAppDetails, getCurrentPlayers } from "./services/steamApi";
+import { getAppDetails as getSteamAppDetails, getCurrentPlayers, getGameNews, getGameReviews } from "./services/steamApi";
 import { getAppDetails as getSteamSpyDetails, getGamesByGenre } from "./services/steamSpyApi";
 import { generateHistoricalData } from "./services/steamChartsApi";
 import {
@@ -486,6 +486,64 @@ export const appRouter = router({
         .sort((a, b) => b.totalPlayers - a.totalPlayers)
         .slice(0, 30);
     }),
+
+    /**
+     * Get recent news for a game from Steam News API (ISteamNews/GetNewsForApp)
+     * Publicly available, no API key required
+     */
+    getGameNews: publicProcedure
+      .input(z.object({ appid: z.number(), count: z.number().min(1).max(20).default(10) }))
+      .query(async ({ input }) => {
+        return getGameNews(input.appid, input.count);
+      }),
+
+    /**
+     * Get full metadata for a game: system requirements, categories, languages, achievements, DLC, age rating
+     * Sourced from official Steam Store API (store.steampowered.com/api/appdetails)
+     */
+    getFullMetadata: publicProcedure
+      .input(z.object({ appid: z.number() }))
+      .query(async ({ input }) => {
+        const details = await getSteamAppDetails(input.appid);
+        if (!details) return null;
+        return {
+          appid: input.appid,
+          name: details.name,
+          detailedDescription: details.detailedDescription,
+          shortDescription: details.shortDescription,
+          supportedLanguages: details.supportedLanguages,
+          categories: details.categories,
+          genres: details.genres,
+          achievementsTotal: details.achievementsTotal,
+          dlcCount: details.dlcCount,
+          ageRating: details.ageRating,
+          legalNotice: details.legalNotice,
+          supportEmail: details.supportEmail,
+          supportUrl: details.supportUrl,
+          metacriticScore: details.metacriticScore,
+          metacriticUrl: details.metacriticUrl,
+          contentDescriptors: details.contentDescriptors,
+          website: details.website,
+          // System requirements
+          pcRequirements: details.pcRequirements,
+          macRequirements: details.macRequirements,
+          linuxRequirements: details.linuxRequirements,
+        };
+      }),
+
+    /**
+     * Get detailed review summary + paginated reviews from Steam's official reviews API
+     */
+    getReviewsV2: publicProcedure
+      .input(z.object({
+        appid: z.number(),
+        filter: z.enum(["all", "recent", "positive", "negative"]).default("all"),
+        numPerPage: z.number().min(1).max(20).default(10),
+        cursor: z.string().default("*"),
+      }))
+      .query(async ({ input }) => {
+        return getGameReviews(input.appid, input.filter, input.numPerPage, input.cursor);
+      }),
 
     /**
      * Trigger a manual data refresh for a specific game (public, rate-limited by client)

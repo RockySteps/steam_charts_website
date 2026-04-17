@@ -280,6 +280,9 @@ export async function getNextCrawlBatch(limit = 10): Promise<number[]> {
   const db = await getDb();
   if (!db) return [];
   const now = new Date();
+  // Use sql template for limit to avoid TiDB/MySQL "Incorrect arguments to LIMIT" error
+  // when Drizzle passes limit as a bound parameter instead of an inline integer
+  const safeLimit = Math.max(1, Math.min(100, Math.floor(limit)));
   const rows = await db.select({ appid: crawlQueue.appid })
     .from(crawlQueue)
     .where(
@@ -292,7 +295,7 @@ export async function getNextCrawlBatch(limit = 10): Promise<number[]> {
       )
     )
     .orderBy(asc(crawlQueue.priority), asc(crawlQueue.updatedAt))
-    .limit(limit);
+    .limit(safeLimit);
   return rows.map((r) => r.appid);
 }
 

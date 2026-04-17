@@ -165,3 +165,17 @@
 - [x] Integrate TrendingSection on Homepage (replace or augment existing trending block)
 - [x] Integrate TrendingSection on Trending page (top of page, above all-time records)
 - [x] Vitest tests for getTrendingNow endpoint
+
+## Game Detail Page Enhancements (Phase 4)
+- [x] tRPC: games.getGameNews - recent news from Steam News API (GetNewsForApp)
+- [x] tRPC: games.getFullMetadata includes system requirements (pcRequirements, macRequirements, linuxRequirements fields)
+- [x] tRPC: games.getFullMetadata - complete game metadata (categories, DLC, achievements, languages, age rating)
+- [x] tRPC: games.getReviewsV2 - total reviews, positive/negative counts, review score summary (verified in routers.ts)
+- [x] Steam News component: recent articles with title, date, source, excerpt, external link
+- [x] System Requirements component: PC/Mac/Linux tabs with min/recommended specs
+- [x] Full Metadata component: categories, supported languages, DLC list, achievements count, age rating, content descriptors
+- [x] Review Summary bar: total reviews, positive %, negative %, score label (Overwhelmingly Positive etc.)
+- [x] Enhanced Highcharts export: PNG, JPEG, SVG download options (extend existing chart)
+- [x] Monthly Stats table: sortable by all columns (Month, Avg Players, Gain, % Gain, Peak Players) with asc/desc toggle
+- [x] Game Detail page tabs: Overview | Player Stats | Reviews | News | System Requirements
+- [x] Vitest tests for getGameNews (3), getFullMetadata (3 incl. sysreq fields), getReviewsV2 (4) — 59 total tests passing

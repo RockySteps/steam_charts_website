@@ -335,3 +335,100 @@ describe("games.getTrendingNow", () => {
     ).resolves.toBeDefined();
   });
 });
+
+// ─── Game News ────────────────────────────────────────────────────────────────
+
+describe("games.getGameNews", () => {
+  it("returns an array of news items for a known game", async () => {
+    const caller = appRouter.createCaller(createPublicContext());
+    const result = await caller.games.getGameNews({ appid: 730, count: 5 });
+    expect(Array.isArray(result)).toBe(true);
+  }, 15000);
+
+  it("news items have required shape when data exists", async () => {
+    const caller = appRouter.createCaller(createPublicContext());
+    const result = await caller.games.getGameNews({ appid: 730, count: 3 });
+    if (result.length > 0) {
+      const item = result[0]!;
+      expect(item).toHaveProperty("gid");
+      expect(item).toHaveProperty("title");
+      expect(item).toHaveProperty("url");
+      expect(item).toHaveProperty("date");
+      expect(typeof item.title).toBe("string");
+      expect(typeof item.url).toBe("string");
+    }
+  }, 15000);
+
+  it("respects the count parameter", async () => {
+    const caller = appRouter.createCaller(createPublicContext());
+    const result = await caller.games.getGameNews({ appid: 730, count: 3 });
+    expect(result.length).toBeLessThanOrEqual(3);
+  }, 15000);
+});
+
+// ─── Full Metadata ────────────────────────────────────────────────────────────
+
+describe("games.getFullMetadata", () => {
+  it("returns metadata object or null for a known game", async () => {
+    const caller = appRouter.createCaller(createPublicContext());
+    const result = await caller.games.getFullMetadata({ appid: 730 });
+    // May return null if Steam API is temporarily unavailable
+    if (result !== null) {
+      expect(result).toHaveProperty("appid");
+      expect(result).toHaveProperty("name");
+      expect(result.appid).toBe(730);
+    }
+  }, 20000);
+
+  it("returns null for an invalid appid", async () => {
+    const caller = appRouter.createCaller(createPublicContext());
+    const result = await caller.games.getFullMetadata({ appid: 999999999 });
+    expect(result).toBeNull();
+  }, 20000);
+
+  it("metadata has system requirements fields when available", async () => {
+    const caller = appRouter.createCaller(createPublicContext());
+    const result = await caller.games.getFullMetadata({ appid: 730 });
+    if (result !== null) {
+      // These fields should exist (may be empty objects/null)
+      expect("pcRequirements" in result).toBe(true);
+      expect("categories" in result).toBe(true);
+      expect("genres" in result).toBe(true);
+    }
+  }, 20000);
+});
+
+// ─── Reviews V2 ───────────────────────────────────────────────────────────────
+
+describe("games.getReviewsV2", () => {
+  it("returns reviews and summary for a known game", async () => {
+    const caller = appRouter.createCaller(createPublicContext());
+    const result = await caller.games.getReviewsV2({ appid: 730, filter: "all", numPerPage: 5, cursor: "*" });
+    expect(result).toHaveProperty("reviews");
+    expect(Array.isArray(result.reviews)).toBe(true);
+  }, 15000);
+
+  it("returns review summary with positive/negative counts", async () => {
+    const caller = appRouter.createCaller(createPublicContext());
+    const result = await caller.games.getReviewsV2({ appid: 730, filter: "all", numPerPage: 3, cursor: "*" });
+    if (result.summary) {
+      expect(result.summary).toHaveProperty("totalPositive");
+      expect(result.summary).toHaveProperty("totalNegative");
+      expect(result.summary).toHaveProperty("totalReviews");
+      expect(typeof result.summary.totalPositive).toBe("number");
+      expect(typeof result.summary.totalNegative).toBe("number");
+    }
+  }, 15000);
+
+  it("accepts recent filter", async () => {
+    const caller = appRouter.createCaller(createPublicContext());
+    const result = await caller.games.getReviewsV2({ appid: 730, filter: "recent", numPerPage: 3, cursor: "*" });
+    expect(Array.isArray(result.reviews)).toBe(true);
+  }, 15000);
+
+  it("accepts negative filter", async () => {
+    const caller = appRouter.createCaller(createPublicContext());
+    const result = await caller.games.getReviewsV2({ appid: 730, filter: "negative", numPerPage: 3, cursor: "*" });
+    expect(Array.isArray(result.reviews)).toBe(true);
+  }, 15000);
+});
