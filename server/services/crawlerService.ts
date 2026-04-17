@@ -1,8 +1,8 @@
 /**
  * Crawler Service
- * Manages the 13K game crawl queue with priority-based processing:
+ * Manages the game crawl queue with priority-based processing:
  * - Priority 1: Top 100 games by CCU (crawled immediately on startup)
- * - Priority 2: All other games from apps.txt (crawled in batches)
+ * - Priority 2: All other games from Steam App List API (~150k apps)
  * - 24-hour auto-refresh for all games
  * - Rate-limit safe: 1 request per second max
  */
@@ -18,7 +18,7 @@ import {
   upsertMonthlyStats, recordPlayerCount, getPlayerHistory,
   updatePrevCcu, getGameByAppid
 } from "../db";
-import { getAppDetails as getSteamAppDetails, getCurrentPlayers } from "./steamApi";
+import { getAppDetails as getSteamAppDetails, getCurrentPlayers, getFullSteamAppList } from "./steamApi";
 import { getAppDetails as getSteamSpyAppDetails } from "./steamSpyApi";
 
 // ─── State ─────────────────────────────────────────────────────────────────────
@@ -48,7 +48,7 @@ const state: CrawlerState = {
 let crawlLoopTimer: ReturnType<typeof setTimeout> | null = null;
 let schedulerTimer: ReturnType<typeof setTimeout> | null = null;
 
-// ─── Apps.txt Loader ───────────────────────────────────────────────────────────
+// ─── Apps.txt Loader (fallback) ────────────────────────────────────────────────
 
 export function loadAppIds(): number[] {
   try {
@@ -59,8 +59,7 @@ export function loadAppIds(): number[] {
       .map((line) => line.trim())
       .filter((line) => line.length > 0 && /^\d+$/.test(line))
       .map((line) => parseInt(line, 10));
-  } catch (e) {
-    console.error("[Crawler] Failed to load apps.txt:", e);
+  } catch {
     return [];
   }
 }
@@ -73,12 +72,40 @@ export async function initializeCrawler(): Promise<void> {
   // Reset any stale processing items from previous run
   await resetStaleCrawls();
 
-  // Load all app IDs from apps.txt and seed the queue
-  const appIds = loadAppIds();
-  if (appIds.length > 0) {
-    console.log(`[Crawler] Seeding crawl queue with ${appIds.length} app IDs...`);
-    await seedCrawlQueue(appIds);
-    console.log("[Crawler] Crawl queue seeded.");
+  // Check current queue stats
+  const queueStats = await getCrawlQueueStats();
+  console.log(`[Crawler] Current queue: ${queueStats.total} total, ${queueStats.done} done, ${queueStats.pending} pending`);
+
+  // Seed from full Steam app list if queue is empty or small
+  if (queueStats.total < 50000) {
+    console.log("[Crawler] Queue is small — seeding from Steam App List API (~150k apps)...");
+    try {
+      const steamApps = await getFullSteamAppList();
+      if (steamApps.length > 0) {
+        const appIds = steamApps.map((a) => a.appid);
+        console.log(`[Crawler] Fetched ${appIds.length} app IDs from Steam API. Seeding queue...`);
+        await seedCrawlQueue(appIds);
+        console.log(`[Crawler] Queue seeded with ${appIds.length} app IDs.`);
+      } else {
+        // Fallback to apps.txt if Steam API fails
+        console.log("[Crawler] Steam API returned empty list, falling back to apps.txt...");
+        const localAppIds = loadAppIds();
+        if (localAppIds.length > 0) {
+          await seedCrawlQueue(localAppIds);
+          console.log(`[Crawler] Seeded ${localAppIds.length} app IDs from apps.txt.`);
+        }
+      }
+    } catch (e) {
+      console.error("[Crawler] Failed to fetch Steam app list:", e);
+      // Fallback to apps.txt
+      const localAppIds = loadAppIds();
+      if (localAppIds.length > 0) {
+        await seedCrawlQueue(localAppIds);
+        console.log(`[Crawler] Seeded ${localAppIds.length} app IDs from apps.txt (fallback).`);
+      }
+    }
+  } else {
+    console.log(`[Crawler] Queue already has ${queueStats.total} apps, skipping re-seed.`);
   }
 
   // Set priority 1 for top 100 games by current CCU

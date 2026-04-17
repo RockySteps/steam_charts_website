@@ -6,7 +6,7 @@ import {
   ChevronLeft, Gamepad2, RefreshCw, MessageSquare, Table2,
   Newspaper, Cpu, Info, ThumbsUp, ThumbsDown, Award,
   Languages, Package, Shield, Headphones, ChevronDown, ChevronUp,
-  BookOpen
+  BookOpen, DollarSign
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { trpc } from "@/lib/trpc";
@@ -23,7 +23,7 @@ import {
 import { cn } from "@/lib/utils";
 import SteamImage from "@/components/SteamImage";
 
-type DetailTab = "chart" | "monthly" | "reviews" | "news" | "sysreq" | "metadata";
+type DetailTab = "chart" | "monthly" | "reviews" | "news" | "sysreq" | "metadata" | "price";
 
 // ─── Helper: strip HTML tags from Steam descriptions ──────────────────────────
 function stripHtml(html: string): string {
@@ -105,6 +105,7 @@ export default function GameDetail() {
   const appid = parseInt(params.appid ?? "0", 10);
   const [activeTab, setActiveTab] = useState<DetailTab>("chart");
   const [expandDesc, setExpandDesc] = useState(false);
+  const [priceCurrency, setPriceCurrency] = useState("us");
 
   const { data: game, isLoading: gameLoading, refetch: refetchGame } = trpc.games.getGameDetail.useQuery({ appid });
   const { data: topGames } = trpc.games.getTrending.useQuery({ limit: 6 });
@@ -115,6 +116,10 @@ export default function GameDetail() {
   const { data: metadata, isLoading: metaLoading } = trpc.games.getFullMetadata.useQuery(
     { appid },
     { enabled: activeTab === "sysreq" || activeTab === "metadata", staleTime: 30 * 60 * 1000 }
+  );
+  const { data: priceData, isLoading: priceLoading } = trpc.games.getPriceByCountry.useQuery(
+    { appid, cc: priceCurrency },
+    { enabled: activeTab === "price", staleTime: 10 * 60 * 1000 }
   );
   const triggerUpdate = trpc.games.triggerUpdate.useMutation();
 
@@ -149,22 +154,50 @@ export default function GameDetail() {
         description={game ? `Live player count, historical charts, user reviews, news, and system requirements for ${game.name} on Steam. Currently ${formatNumber(game.ccu)} players online.` : ""}
         image={game?.headerImage ?? undefined}
         url={`/game/${appid}`}
-        jsonLd={game ? {
-          "@context": "https://schema.org",
-          "@type": "VideoGame",
-          "name": game.name,
-          "description": game.shortDescription ?? "",
-          "url": getSteamStoreUrl(appid),
-          "image": game.headerImage ?? getHeaderImage(appid),
-          "author": { "@type": "Organization", "name": game.developer ?? "" },
-          "publisher": { "@type": "Organization", "name": game.publisher ?? "" },
-          "aggregateRating": game.totalReviews ? {
-            "@type": "AggregateRating",
-            "ratingValue": positivePercent,
-            "bestRating": 100,
-            "ratingCount": game.totalReviews,
-          } : undefined,
-        } : undefined}
+        jsonLd={game ? [
+          {
+            "@context": "https://schema.org",
+            "@type": "VideoGame",
+            "name": game.name,
+            "description": game.shortDescription ?? "",
+            "url": getSteamStoreUrl(appid),
+            "image": game.headerImage ?? getHeaderImage(appid),
+            "author": { "@type": "Organization", "name": game.developer ?? "" },
+            "publisher": { "@type": "Organization", "name": game.publisher ?? "" },
+            "genre": genres.slice(0, 5),
+            "datePublished": game.releaseDate ?? undefined,
+            "operatingSystem": [
+              ...(platforms?.windows ? ["Windows"] : []),
+              ...(platforms?.mac ? ["macOS"] : []),
+              ...(platforms?.linux ? ["Linux"] : []),
+            ],
+            "aggregateRating": game.totalReviews ? {
+              "@type": "AggregateRating",
+              "ratingValue": positivePercent,
+              "bestRating": 100,
+              "worstRating": 0,
+              "ratingCount": game.totalReviews,
+              "reviewCount": game.totalReviews,
+            } : undefined,
+            "offers": game.priceUsd != null ? {
+              "@type": "Offer",
+              "priceCurrency": "USD",
+              "price": game.isFree ? "0" : String(game.priceUsd ?? 0),
+              "availability": "https://schema.org/InStock",
+              "url": getSteamStoreUrl(appid),
+              "seller": { "@type": "Organization", "name": "Steam" },
+            } : undefined,
+          },
+          {
+            "@context": "https://schema.org",
+            "@type": "BreadcrumbList",
+            "itemListElement": [
+              { "@type": "ListItem", "position": 1, "name": "Home", "item": `${typeof window !== "undefined" ? window.location.origin : ""}/` },
+              { "@type": "ListItem", "position": 2, "name": "Charts", "item": `${typeof window !== "undefined" ? window.location.origin : ""}/charts` },
+              { "@type": "ListItem", "position": 3, "name": game.name, "item": `${typeof window !== "undefined" ? window.location.origin : ""}/game/${appid}` },
+            ],
+          },
+        ] : undefined}
       />
       <div className="page-enter">
         {/* ── Hero Banner ─────────────────────────────────────────────────── */}
@@ -311,6 +344,7 @@ export default function GameDetail() {
                 <TabBtn id="news" active={activeTab === "news"} icon={Newspaper} label="News" onClick={() => setActiveTab("news")} />
                 <TabBtn id="sysreq" active={activeTab === "sysreq"} icon={Cpu} label="System Req." onClick={() => setActiveTab("sysreq")} />
                 <TabBtn id="metadata" active={activeTab === "metadata"} icon={Info} label="Metadata" onClick={() => setActiveTab("metadata")} />
+                <TabBtn id="price" active={activeTab === "price"} icon={DollarSign} label="Price & Discounts" onClick={() => setActiveTab("price")} />
               </div>
               <Button
                 variant="outline" size="sm"
@@ -435,6 +469,136 @@ export default function GameDetail() {
                     <SysReqPanel title="Windows" reqs={metadata.pcRequirements} />
                     <SysReqPanel title="macOS" reqs={metadata.macRequirements} />
                     <SysReqPanel title="Linux" reqs={metadata.linuxRequirements} />
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── Tab: Price History & Discounts ── */}
+            {activeTab === "price" && (
+              <div>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5">
+                  <div className="flex items-center gap-2">
+                    <DollarSign className="w-5 h-5 text-[oklch(0.72_0.2_145)]" />
+                    <h3 className="font-display text-lg font-bold text-white">Price &amp; Discounts</h3>
+                    <span className="text-xs text-[oklch(0.42_0.02_260)] ml-1">via Steam Store API</span>
+                  </div>
+                  {/* Currency selector */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-slate-400">Currency:</span>
+                    <select
+                      value={priceCurrency}
+                      onChange={(e) => setPriceCurrency(e.target.value)}
+                      className="text-xs bg-slate-800 border border-slate-700 text-slate-200 rounded-md px-2 py-1.5 focus:outline-none focus:border-indigo-500"
+                    >
+                      <option value="us">🇺🇸 USD — US Dollar</option>
+                      <option value="gb">🇬🇧 GBP — British Pound</option>
+                      <option value="eu">🇪🇺 EUR — Euro</option>
+                      <option value="au">🇦🇺 AUD — Australian Dollar</option>
+                      <option value="ca">🇨🇦 CAD — Canadian Dollar</option>
+                      <option value="in">🇮🇳 INR — Indian Rupee</option>
+                      <option value="br">🇧🇷 BRL — Brazilian Real</option>
+                      <option value="ru">🇷🇺 RUB — Russian Ruble</option>
+                      <option value="tr">🇹🇷 TRY — Turkish Lira</option>
+                      <option value="cn">🇨🇳 CNY — Chinese Yuan</option>
+                      <option value="jp">🇯🇵 JPY — Japanese Yen</option>
+                      <option value="kr">🇰🇷 KRW — Korean Won</option>
+                      <option value="mx">🇲🇽 MXN — Mexican Peso</option>
+                      <option value="ar">🇦🇷 ARS — Argentine Peso</option>
+                      <option value="no">🇳🇴 NOK — Norwegian Krone</option>
+                      <option value="pl">🇵🇱 PLN — Polish Zloty</option>
+                      <option value="ch">🇨🇭 CHF — Swiss Franc</option>
+                      <option value="nz">🇳🇿 NZD — New Zealand Dollar</option>
+                      <option value="sg">🇸🇬 SGD — Singapore Dollar</option>
+                      <option value="hk">🇭🇰 HKD — Hong Kong Dollar</option>
+                      <option value="za">🇿🇦 ZAR — South African Rand</option>
+                      <option value="ua">🇺🇦 UAH — Ukrainian Hryvnia</option>
+                      <option value="kz">🇰🇿 KZT — Kazakhstani Tenge</option>
+                      <option value="id">🇮🇩 IDR — Indonesian Rupiah</option>
+                      <option value="th">🇹🇭 THB — Thai Baht</option>
+                      <option value="my">🇲🇾 MYR — Malaysian Ringgit</option>
+                      <option value="ph">🇵🇭 PHP — Philippine Peso</option>
+                      <option value="vn">🇻🇳 VND — Vietnamese Dong</option>
+                      <option value="ae">🇦🇪 AED — UAE Dirham</option>
+                      <option value="sa">🇸🇦 SAR — Saudi Riyal</option>
+                      <option value="il">🇮🇱 ILS — Israeli Shekel</option>
+                      <option value="pk">🇵🇰 PKR — Pakistani Rupee</option>
+                    </select>
+                  </div>
+                </div>
+
+                {priceLoading ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {Array.from({ length: 3 }).map((_, i) => (
+                      <div key={i} className="rounded-lg border border-[oklch(0.18_0.015_260)] p-4 space-y-2 animate-pulse">
+                        <div className="h-3 w-24 bg-slate-700/50 rounded" />
+                        <div className="h-6 w-32 bg-slate-700/50 rounded" />
+                      </div>
+                    ))}
+                  </div>
+                ) : !priceData ? (
+                  <div className="text-center py-12">
+                    <DollarSign className="w-12 h-12 text-[oklch(0.3_0.02_260)] mx-auto mb-3" />
+                    <p className="text-[oklch(0.45_0.02_260)]">Price data not available for this region.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    {/* Price summary cards */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                      <div className="rounded-xl border border-[oklch(0.18_0.015_260)] bg-[oklch(0.09_0.01_260)] p-4">
+                        <p className="text-xs text-[oklch(0.42_0.02_260)] uppercase tracking-wide font-mono mb-1">Current Price</p>
+                        <p className="text-xl font-bold text-white">
+                          {priceData.isFree ? "Free" : priceData.final != null ? priceData.finalFormatted : "—"}
+                        </p>
+                      </div>
+                      <div className="rounded-xl border border-[oklch(0.18_0.015_260)] bg-[oklch(0.09_0.01_260)] p-4">
+                        <p className="text-xs text-[oklch(0.42_0.02_260)] uppercase tracking-wide font-mono mb-1">Original Price</p>
+                        <p className="text-xl font-bold text-[oklch(0.55_0.02_260)] line-through">
+                          {priceData.initial != null ? priceData.initialFormatted : "—"}
+                        </p>
+                      </div>
+                      <div className="rounded-xl border border-[oklch(0.18_0.015_260)] bg-[oklch(0.09_0.01_260)] p-4">
+                        <p className="text-xs text-[oklch(0.42_0.02_260)] uppercase tracking-wide font-mono mb-1">Discount</p>
+                        <p className={`text-xl font-bold ${priceData.discountPercent > 0 ? "text-[oklch(0.72_0.2_145)]" : "text-[oklch(0.55_0.02_260)]"}`}>
+                          {priceData.discountPercent > 0 ? `-${priceData.discountPercent}%` : "No Discount"}
+                        </p>
+                      </div>
+                      <div className="rounded-xl border border-[oklch(0.18_0.015_260)] bg-[oklch(0.09_0.01_260)] p-4">
+                        <p className="text-xs text-[oklch(0.42_0.02_260)] uppercase tracking-wide font-mono mb-1">Currency</p>
+                        <p className="text-xl font-bold text-white uppercase">{priceData.currency}</p>
+                      </div>
+                    </div>
+
+                    {/* On sale banner */}
+                    {priceData.discountPercent > 0 && (
+                      <div className="rounded-xl border border-[oklch(0.72_0.2_145/0.3)] bg-[oklch(0.72_0.2_145/0.05)] p-4 flex items-center gap-4">
+                        <div className="flex-shrink-0 w-14 h-14 rounded-xl bg-[oklch(0.72_0.2_145)] flex items-center justify-center">
+                          <span className="text-black font-black text-lg">-{priceData.discountPercent}%</span>
+                        </div>
+                        <div>
+                          <p className="text-[oklch(0.72_0.2_145)] font-semibold text-sm mb-0.5">On Sale Now!</p>
+                          <p className="text-[oklch(0.55_0.02_260)] text-xs">
+                            Save {priceData.initialFormatted} → {priceData.finalFormatted} in {priceData.currency.toUpperCase()}
+                          </p>
+                        </div>
+                        <div className="ml-auto">
+                          <a
+                            href={`https://store.steampowered.com/app/${appid}/`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[oklch(0.72_0.2_145)] text-black font-semibold text-sm hover:opacity-90 transition-opacity"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                            Buy on Steam
+                          </a>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Price in all major currencies note */}
+                    <div className="rounded-lg border border-[oklch(0.18_0.015_260)] bg-[oklch(0.09_0.01_260)] p-4 text-xs text-[oklch(0.45_0.02_260)]">
+                      <p>Price data is fetched in real-time from Steam's store API for the selected region. Prices may vary by country due to regional pricing. Select a different currency above to compare prices across regions.</p>
+                    </div>
                   </div>
                 )}
               </div>

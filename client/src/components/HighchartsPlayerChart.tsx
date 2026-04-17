@@ -5,7 +5,7 @@
  * - Dual series: Daily Avg. Players (green) + Daily Peak Players (blue)
  * - Zoom buttons: 7D, 1M, 3M, 6M, 1Y, All
  * - Navigator (scrollbar) at the bottom for panning
- * - Export: PNG, JPEG, SVG, Print
+ * - Export: PNG, JPEG, SVG, CSV, PDF (with custom toolbar)
  * - Matches the existing dark premium design system
  */
 
@@ -101,6 +101,11 @@ interface Props {
   gameName?: string;
 }
 
+// Sanitize filename: lowercase, replace non-alphanumeric with dash
+function sanitizeFilename(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+}
+
 export default function HighchartsPlayerChart({ appid, gameName }: Props) {
   const [period, setPeriod] = useState<Period>("yearly");
   const chartRef = useRef<HighchartsReact.RefObject>(null);
@@ -113,6 +118,46 @@ export default function HighchartsPlayerChart({ appid, gameName }: Props) {
   // Build two series from the data
   const avgSeries: [number, number][] = (data ?? []).map(p => [p.timestamp, p.players]);
   const peakSeries: [number, number][] = (data ?? []).map(p => [p.timestamp, p.peak ?? p.players]);
+
+  // Build export filename: {gamename}-steampulse-{appid}
+  const baseFilename = gameName
+    ? `${sanitizeFilename(gameName)}-steampulse-${appid}`
+    : `steampulse-${appid}`;
+
+  // Export handlers
+  const handleExport = (type: "image/png" | "image/jpeg" | "image/svg+xml" | "application/pdf") => {
+    const chart = chartRef.current?.chart;
+    if (!chart) return;
+    const extMap: Record<string, string> = {
+      "image/png": "png",
+      "image/jpeg": "jpeg",
+      "image/svg+xml": "svg",
+      "application/pdf": "pdf",
+    };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (chart as any).exportChart({
+      type,
+      filename: baseFilename,
+      sourceWidth: 1200,
+      sourceHeight: 500,
+      scale: 2,
+    });
+  };
+
+  const handleExportCSV = () => {
+    const chart = chartRef.current?.chart;
+    if (!chart) return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const csv = (chart as any).getCSV?.();
+    if (!csv) return;
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${baseFilename}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   const options: Highcharts.Options = {
     chart: {
@@ -280,25 +325,14 @@ export default function HighchartsPlayerChart({ appid, gameName }: Props) {
 
     exporting: {
       enabled: true,
-      filename: gameName ? `${gameName.replace(/[^a-z0-9]/gi, "_")}_player_chart` : "player_chart",
+      filename: baseFilename,
       sourceWidth: 1200,
       sourceHeight: 500,
       scale: 2,
-      menuItemDefinitions: {
-        downloadPNG: { text: "Download PNG" },
-        downloadJPEG: { text: "Download JPEG" },
-        downloadSVG: { text: "Download SVG" },
-        printChart: { text: "Print Chart" },
-      },
+      // Hide the default context button since we have our own toolbar
       buttons: {
         contextButton: {
-          menuItems: ["downloadPNG", "downloadJPEG", "downloadSVG", "separator", "printChart"],
-          symbolStroke: "#94a3b8",
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          theme: {
-            fill: "rgba(20,22,36,0.95)",
-            stroke: "rgba(99,102,241,0.3)",
-          } as any,
+          enabled: false,
         },
       },
     },
@@ -306,10 +340,12 @@ export default function HighchartsPlayerChart({ appid, gameName }: Props) {
     accessibility: { enabled: false },
   };
 
+  const exportBtnClass = "flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md border border-slate-700/50 bg-slate-800/60 text-slate-400 hover:text-slate-200 hover:bg-slate-700/60 hover:border-slate-600/60 transition-all duration-150 cursor-pointer";
+
   return (
     <div className="w-full">
-      {/* Period selector + live indicator */}
-      <div className="flex items-center justify-between mb-3 px-1">
+      {/* Period selector + live indicator + export toolbar */}
+      <div className="flex items-center justify-between mb-3 px-1 flex-wrap gap-2">
         <div className="flex items-center gap-2">
           <span className="relative flex h-2.5 w-2.5">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
@@ -352,6 +388,61 @@ export default function HighchartsPlayerChart({ appid, gameName }: Props) {
             ref={chartRef}
           />
         )}
+      </div>
+
+      {/* Export toolbar */}
+      <div className="flex items-center gap-2 mt-3 px-1 flex-wrap">
+        <span className="text-xs text-slate-500 mr-1">Export:</span>
+        <button
+          onClick={() => handleExport("image/png")}
+          className={exportBtnClass}
+          title={`Download ${baseFilename}.png`}
+        >
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+          PNG
+        </button>
+        <button
+          onClick={() => handleExport("image/jpeg")}
+          className={exportBtnClass}
+          title={`Download ${baseFilename}.jpg`}
+        >
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+          JPEG
+        </button>
+        <button
+          onClick={() => handleExport("image/svg+xml")}
+          className={exportBtnClass}
+          title={`Download ${baseFilename}.svg`}
+        >
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+          </svg>
+          SVG
+        </button>
+        <button
+          onClick={handleExportCSV}
+          className={exportBtnClass}
+          title={`Download ${baseFilename}.csv`}
+        >
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          CSV
+        </button>
+        <button
+          onClick={() => handleExport("application/pdf")}
+          className={exportBtnClass}
+          title={`Download ${baseFilename}.pdf`}
+        >
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+          </svg>
+          PDF
+        </button>
       </div>
     </div>
   );

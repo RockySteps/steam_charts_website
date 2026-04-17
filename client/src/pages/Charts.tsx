@@ -64,13 +64,42 @@ export default function Charts() {
     return `/charts/top/${s}-${e}/`;
   }
 
-  const seoTitle = `Top Steam Charts ${start}–${end} | Live Player Rankings | SteamPulse`;
-  const seoDesc = `Real-time Steam game rankings ${start}–${end} sorted by current players, all-time peak, and ownership. Updated hourly.`;
+  const seoTitle = `Top Steam Charts ${start}\u2013${end} | Live Player Rankings | SteamPulse`;
+  const seoDesc = `Real-time Steam game rankings ${start}\u2013${end} sorted by current players, all-time peak, and ownership. Updated hourly.`;
   const seoUrl = `/charts/top/${start}-${end}/`;
+  const origin = typeof window !== "undefined" ? window.location.origin : "https://steampulse.io";
+  const prevUrl = currentPage > 1 ? getPageUrl(currentPage - 1) : undefined;
+  const nextUrl = (filtered.length >= PAGE_SIZE) ? getPageUrl(currentPage + 1) : undefined;
+
+  const chartsJsonLd = [
+    {
+      "@context": "https://schema.org",
+      "@type": "ItemList",
+      "name": `Top Steam Games ${start}\u2013${end}`,
+      "description": seoDesc,
+      "url": `${origin}${seoUrl}`,
+      "numberOfItems": filtered.length,
+      "itemListElement": filtered.slice(0, 10).map((g, i) => ({
+        "@type": "ListItem",
+        "position": offset + i + 1,
+        "name": g.name,
+        "url": `${origin}/game/${g.appid}`,
+      })),
+    },
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": `${origin}/` },
+        { "@type": "ListItem", "position": 2, "name": "Top Charts", "item": `${origin}/charts` },
+        ...(currentPage > 1 ? [{ "@type": "ListItem", "position": 3, "name": `Page ${currentPage}`, "item": `${origin}${seoUrl}` }] : []),
+      ],
+    },
+  ];
 
   return (
     <>
-      <SEOHead title={seoTitle} description={seoDesc} url={seoUrl} />
+      <SEOHead title={seoTitle} description={seoDesc} url={seoUrl} jsonLd={chartsJsonLd} prevUrl={prevUrl} nextUrl={nextUrl} />
       <div className="page-enter container py-8">
         {/* Header */}
         <div className="mb-8">

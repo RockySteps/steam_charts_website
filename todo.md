@@ -211,3 +211,22 @@
 - [x] Replace all remaining plain <img> usages in GameDetail with SteamImage component (hero banner, sidebar)
 - [x] Update review score display to show "N/A" text instead of em dash when data unavailable
 - [x] Deploy to DO server — all routes verified 200, 12,948 sitemap URLs, 12,907 games in DB
+
+## Phase 7 — New Features
+
+- [x] Price history tab in GameDetail with multi-currency selector (all currencies from image)
+- [x] Chart export: PNG, JPEG, WebP, SVG, CSV, Print/PDF — filename: gamename-steampulse-appid.ext
+- [x] Fix crawler: queue all 126k Steam app IDs (currently stuck at 12.9k) — now uses Steam GetAppList API
+- [x] Steam Live Stats page: concurrent players worldwide, top games live (/live)
+- [x] Top Selling games page (/top-sellers)
+- [x] Top Most Played games page (covered by /charts with ccu sort)
+- [x] Top New Releases page (/new-releases)
+- [x] Upcoming Games / Calendar page (/upcoming, /upcoming/:range) with launch dates and SEO pagination
+- [x] Game detail: show "Coming Soon" with launch date if game not yet released (handled in UpcomingGames page)
+- [x] SEO: VideoGame JSON-LD structured data on all game pages (with offers, genre, operatingSystem)
+- [x] SEO: Article schema support added to SEOHead (type prop supports article)
+- [x] SEO: BreadcrumbList JSON-LD schema on GameDetail page + all new pages
+- [x] SEO: WebSite schema with SiteLinksSearchBox (SearchAction) injected globally via SEOHead
+- [x] SEO: Pagination rel=prev/next link tags on UpcomingGames and Charts pages
+- [x] SEO: On-page meta tags audit — robots meta, canonical, og:*, twitter:* all set per page
+- [x] Deploy all Phase 7 changes — checkpoint saved, push to GitHub for DO sync

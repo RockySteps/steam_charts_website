@@ -98,6 +98,36 @@ export interface SteamReview {
   writtenDuringEarlyAccess: boolean;
 }
 
+export interface SteamPriceInfo {
+  currency: string;
+  initial: number;        // in cents
+  final: number;          // in cents
+  discountPercent: number;
+  initialFormatted: string;
+  finalFormatted: string;
+  isFree: boolean;
+}
+
+export interface SteamFeaturedGame {
+  id: number;
+  name: string;
+  discounted: boolean;
+  discountPercent: number;
+  originalPrice: number | null;
+  finalPrice: number | null;
+  currency: string;
+  largeHeaderImage: string;
+  smallHeaderImage: string;
+  headerImage: string;
+  capsuleImage: string;
+}
+
+export interface SteamFeaturedCategories {
+  topSellers: SteamFeaturedGame[];
+  newReleases: SteamFeaturedGame[];
+  comingSoon: SteamFeaturedGame[];
+}
+
 /**
  * Get current player count for a specific game
  */
@@ -205,6 +235,126 @@ export async function getAppDetails(appid: number): Promise<SteamAppDetail | nul
       legalNotice: d.legal_notice ? String(d.legal_notice) : null,
       supportEmail: support?.email ?? null,
       supportUrl: support?.url ?? null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Get price for a game in a specific currency/country
+ * Uses Steam Store API with cc= parameter
+ */
+export async function getPriceByCountry(appid: number, cc: string): Promise<SteamPriceInfo | null> {
+  try {
+    const url = `${STEAM_STORE_API}/appdetails?appids=${appid}&cc=${cc}&filters=price_overview`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+    if (!res.ok) return null;
+    const data = await res.json() as Record<string, { success: boolean; data?: { is_free?: boolean; price_overview?: Record<string, unknown> } }>;
+    const appData = data[String(appid)];
+    if (!appData?.success) return null;
+
+    // Free game
+    if (appData.data?.is_free) {
+      return { currency: cc.toUpperCase(), initial: 0, final: 0, discountPercent: 0, initialFormatted: "Free", finalFormatted: "Free", isFree: true };
+    }
+
+    const p = appData.data?.price_overview;
+    if (!p) return null;
+
+    return {
+      currency: String(p.currency ?? cc.toUpperCase()),
+      initial: Number(p.initial ?? 0),
+      final: Number(p.final ?? 0),
+      discountPercent: Number(p.discount_percent ?? 0),
+      initialFormatted: String(p.initial_formatted ?? ""),
+      finalFormatted: String(p.final_formatted ?? ""),
+      isFree: false,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Get featured categories from Steam Store API
+ * Returns top_sellers, new_releases, coming_soon sections
+ */
+export async function getFeaturedCategories(cc = "us"): Promise<SteamFeaturedCategories> {
+  const empty: SteamFeaturedCategories = { topSellers: [], newReleases: [], comingSoon: [] };
+  try {
+    const url = `${STEAM_STORE_API}/featuredcategories?cc=${cc}&l=en`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(12000) });
+    if (!res.ok) return empty;
+    const data = await res.json() as Record<string, unknown>;
+
+    const mapItems = (section: unknown): SteamFeaturedGame[] => {
+      if (!section || typeof section !== "object") return [];
+      const s = section as Record<string, unknown>;
+      const items = s.items as Array<Record<string, unknown>> | undefined;
+      if (!Array.isArray(items)) return [];
+      return items.map((item) => {
+        const id = Number(item.id ?? 0);
+        return {
+          id,
+          name: String(item.name ?? ""),
+          discounted: Boolean(item.discounted),
+          discountPercent: Number(item.discount_percent ?? 0),
+          originalPrice: item.original_price != null ? Number(item.original_price) : null,
+          finalPrice: item.final_price != null ? Number(item.final_price) : null,
+          currency: String(item.currency ?? "USD"),
+          largeHeaderImage: String(item.large_header_image ?? ""),
+          smallHeaderImage: String(item.small_header_image ?? ""),
+          headerImage: `https://cdn.cloudflare.steamstatic.com/steam/apps/${id}/header.jpg`,
+          capsuleImage: `https://cdn.cloudflare.steamstatic.com/steam/apps/${id}/capsule_231x87.jpg`,
+        };
+      }).filter((g) => g.id > 0 && g.name);
+    };
+
+    return {
+      topSellers: mapItems(data.top_sellers),
+      newReleases: mapItems(data.new_releases),
+      comingSoon: mapItems(data.coming_soon),
+    };
+  } catch {
+    return empty;
+  }
+}
+
+/**
+ * Get the full Steam app list (all ~150k app IDs)
+ * Uses ISteamApps/GetAppList/v2 — no API key required
+ */
+export async function getFullSteamAppList(): Promise<Array<{ appid: number; name: string }>> {
+  try {
+    const url = `${STEAM_API_BASE}/ISteamApps/GetAppList/v2/`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(30000) });
+    if (!res.ok) return [];
+    const data = await res.json() as { applist?: { apps?: Array<{ appid: number; name: string }> } };
+    return data?.applist?.apps ?? [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Get app details for a coming-soon game (release date info)
+ */
+export async function getComingSoonDetails(appid: number): Promise<{ name: string; releaseDate: string; comingSoon: boolean; shortDescription: string } | null> {
+  try {
+    const url = `${STEAM_STORE_API}/appdetails?appids=${appid}&cc=us&l=en&filters=basic,release_date`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+    if (!res.ok) return null;
+    const data = await res.json() as Record<string, { success: boolean; data?: Record<string, unknown> }>;
+    const appData = data[String(appid)];
+    if (!appData?.success || !appData.data) return null;
+    const d = appData.data;
+    const releaseDate = d.release_date as Record<string, unknown> | undefined;
+    return {
+      name: String(d.name ?? ""),
+      releaseDate: String(releaseDate?.date ?? ""),
+      comingSoon: Boolean(releaseDate?.coming_soon),
+      shortDescription: String(d.short_description ?? ""),
     };
   } catch {
     return null;

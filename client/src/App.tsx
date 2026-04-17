@@ -14,7 +14,11 @@ import Trending from "./pages/Trending";
 import Genres from "./pages/Genres";
 import Compare from "./pages/Compare";
 import SearchPage from "./pages/SearchPage";
-import SitemapPage from "./pages/SitemapPage";
+import SitemapPage from "@/pages/SitemapPage";
+import LiveStats from "@/pages/LiveStats";
+import TopSellers from "@/pages/TopSellers";
+import NewReleases from "@/pages/NewReleases";
+import UpcomingGames from "@/pages/UpcomingGames";
 
 /** Scroll to top whenever the route changes */
 function ScrollToTop() {
@@ -55,6 +59,12 @@ function Router() {
       <Route path="/compare" component={() => <Layout><Compare /></Layout>} />
       <Route path="/search" component={() => <Layout><SearchPage /></Layout>} />
       <Route path="/sitemap" component={() => <Layout><SitemapPage /></Layout>} />
+      <Route path="/live" component={() => <Layout><LiveStats /></Layout>} />
+      <Route path="/top-sellers" component={() => <Layout><TopSellers /></Layout>} />
+      <Route path="/new-releases" component={() => <Layout><NewReleases /></Layout>} />
+      {/* SEO-friendly paginated upcoming games: /upcoming/1-50/ */}
+      <Route path="/upcoming/:range" component={() => <Layout><UpcomingGames /></Layout>} />
+      <Route path="/upcoming" component={() => <Layout><UpcomingGames /></Layout>} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>

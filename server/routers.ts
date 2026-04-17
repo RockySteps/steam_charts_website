@@ -1,7 +1,7 @@
-import { COOKIE_NAME } from "@shared/const";
 import { z } from "zod";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { adminProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
+import { COOKIE_NAME } from "../shared/const";
 import { systemRouter } from "./_core/systemRouter";
 import {
   getGameByAppid,
@@ -19,7 +19,7 @@ import {
   searchGames,
   getTrendingNow,
 } from "./db";
-import { getAppDetails as getSteamAppDetails, getCurrentPlayers, getGameNews, getGameReviews } from "./services/steamApi";
+import { getAppDetails as getSteamAppDetails, getCurrentPlayers, getGameNews, getGameReviews, getPriceByCountry, getFeaturedCategories, getFullSteamAppList } from "./services/steamApi";
 import { getAppDetails as getSteamSpyDetails, getGamesByGenre } from "./services/steamSpyApi";
 import { generateHistoricalData, generateMonthlyStatsFromHistory } from "./services/steamChartsApi";
 import {
@@ -39,7 +39,7 @@ let startupDone = false;
 async function ensureStartup() {
   if (!startupDone) {
     startupDone = true;
-    // Initialize the 13K crawler (seeds queue, sets priorities, starts crawl)
+    // Initialize the crawler (seeds queue, sets priorities, starts crawl)
     initializeCrawler().catch(console.error);
   }
 }
@@ -513,6 +513,106 @@ export const appRouter = router({
       }),
 
     /**
+     * Get price for a game in a specific currency/country
+     * Uses Steam Store API with cc= parameter
+     */
+    getPriceByCountry: publicProcedure
+      .input(z.object({
+        appid: z.number(),
+        cc: z.string().min(2).max(5).default("us"),
+      }))
+      .query(async ({ input }) => {
+        return getPriceByCountry(input.appid, input.cc.toLowerCase());
+      }),
+
+    /**
+     * Get Steam Live Stats: worldwide concurrent players + top games from Steam
+     * Uses ISteamUserStats/GetNumberOfCurrentPlayers (appid=0 = worldwide)
+     * and featuredcategories for top sellers/new releases
+     */
+    getSteamLiveStats: publicProcedure
+      .input(z.object({ cc: z.string().default("us") }))
+      .query(async () => {
+        const [worldwidePlayers, topGames] = await Promise.all([
+          getCurrentPlayers(0),
+          getTopGamesByPlayers(20),
+        ]);
+
+        // Get live player counts for top 10 games
+        const liveCountsPromises = topGames.slice(0, 10).map(async (g) => {
+          const live = await getCurrentPlayers(g.appid).catch(() => g.ccu ?? 0);
+          return { appid: g.appid, live };
+        });
+        const liveCounts = await Promise.all(liveCountsPromises);
+        const liveMap = new Map(liveCounts.map((l) => [l.appid, l.live]));
+
+        return {
+          worldwidePlayers,
+          fetchedAt: new Date().toISOString(),
+          topGames: topGames.slice(0, 10).map((g, idx) => ({
+            rank: idx + 1,
+            appid: g.appid,
+            name: g.name,
+            ccu: liveMap.get(g.appid) ?? g.ccu ?? 0,
+            peakPlayersAllTime: g.peakPlayersAllTime ?? 0,
+            headerImage: g.headerImage ?? `https://cdn.cloudflare.steamstatic.com/steam/apps/${g.appid}/header.jpg`,
+            genre: g.genre ?? "",
+          })),
+        };
+      }),
+
+    /**
+     * Get top selling games from Steam featured categories API
+     */
+    getTopSellers: publicProcedure
+      .input(z.object({ cc: z.string().default("us") }))
+      .query(async ({ input }) => {
+        const featured = await getFeaturedCategories(input.cc);
+        return {
+          games: featured.topSellers,
+          cc: input.cc,
+          fetchedAt: new Date().toISOString(),
+        };
+      }),
+
+    /**
+     * Get new releases from Steam featured categories API
+     */
+    getNewReleases: publicProcedure
+      .input(z.object({ cc: z.string().default("us") }))
+      .query(async ({ input }) => {
+        const featured = await getFeaturedCategories(input.cc);
+        return {
+          games: featured.newReleases,
+          cc: input.cc,
+          fetchedAt: new Date().toISOString(),
+        };
+      }),
+
+    /**
+     * Get upcoming/coming soon games from Steam featured categories API
+     * with SEO-friendly pagination
+     */
+    getUpcomingGames: publicProcedure
+      .input(z.object({
+        cc: z.string().default("us"),
+        limit: z.number().min(1).max(100).default(50),
+        offset: z.number().min(0).default(0),
+      }))
+      .query(async ({ input }) => {
+        const featured = await getFeaturedCategories(input.cc);
+        const all = featured.comingSoon;
+        const total = all.length;
+        const page = all.slice(input.offset, input.offset + input.limit);
+        return {
+          games: page,
+          total,
+          cc: input.cc,
+          fetchedAt: new Date().toISOString(),
+        };
+      }),
+
+    /**
      * Trigger a manual data refresh for a specific game (public, rate-limited by client)
      */
     triggerUpdate: publicProcedure
@@ -533,6 +633,19 @@ export const appRouter = router({
         startCrawler("manual").catch(console.error);
       }
       return { started: true };
+    }),
+
+    /**
+     * Trigger a full re-seed of the crawl queue from the Steam app list API
+     * This will queue all ~150k Steam apps for crawling
+     */
+    seedFullAppList: adminProcedure.mutation(async () => {
+      const apps = await getFullSteamAppList();
+      if (apps.length === 0) return { seeded: 0, error: "Failed to fetch app list" };
+      const { seedCrawlQueue } = await import("./db");
+      const appIds = apps.map((a) => a.appid);
+      await seedCrawlQueue(appIds);
+      return { seeded: appIds.length };
     }),
   }),
 
@@ -637,6 +750,18 @@ export const appRouter = router({
         crawlerPaused: crawlerStatus.isPaused,
         processedToday: crawlerStatus.processedCount,
       };
+    }),
+
+    /**
+     * Seed crawl queue from full Steam app list (~150k apps)
+     */
+    seedFullAppList: adminProcedure.mutation(async () => {
+      const apps = await getFullSteamAppList();
+      if (apps.length === 0) return { seeded: 0, error: "Failed to fetch app list" };
+      const { seedCrawlQueue } = await import("./db");
+      const appIds = apps.map((a) => a.appid);
+      await seedCrawlQueue(appIds);
+      return { seeded: appIds.length };
     }),
   }),
 });
