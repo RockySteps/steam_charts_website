@@ -21,6 +21,7 @@ import {
   formatDate, getSteamStoreUrl, getPositivePercent, getHeaderImage
 } from "@/lib/utils";
 import { cn } from "@/lib/utils";
+import SteamImage from "@/components/SteamImage";
 
 type DetailTab = "chart" | "monthly" | "reviews" | "news" | "sysreq" | "metadata";
 
@@ -192,11 +193,11 @@ export default function GameDetail() {
               </div>
             ) : game ? (
               <div className="flex flex-col sm:flex-row gap-6">
-                <img
-                  src={game.headerImage ?? getHeaderImage(appid)}
-                  alt={game.name}
+                <SteamImage
+                  appid={appid}
+                  name={game.name}
+                  headerImage={game.headerImage}
                   className="w-full sm:w-56 h-32 rounded-xl object-cover border border-[oklch(0.22_0.015_260)] shadow-2xl"
-                  onError={(e) => { (e.target as HTMLImageElement).src = getHeaderImage(appid); }}
                 />
                 <div className="flex-1 min-w-0">
                   <h1 className="font-display text-3xl sm:text-4xl font-bold text-white mb-2">{game.name}</h1>
@@ -248,7 +249,7 @@ export default function GameDetail() {
             <StatCard label="Avg Playtime" value={formatPlaytime(game?.averagePlaytimeForever)} icon={Clock} color="teal" loading={gameLoading} />
             <StatCard
               label="Review Score"
-              value={positivePercent ? `${positivePercent}%` : "—"}
+              value={positivePercent ? `${positivePercent}%` : "N/A"}
               icon={Star}
               color={positivePercent >= 70 ? "green" : positivePercent >= 50 ? "gold" : "red"}
               loading={gameLoading}
@@ -678,9 +679,8 @@ export default function GameDetail() {
                     <Link key={g.appid} href={`/game/${g.appid}`}>
                       <div className="flex items-center gap-2 p-2 rounded-lg hover:bg-[oklch(0.14_0.015_260)] transition-colors cursor-pointer">
                         <span className="rank-badge text-[oklch(0.42_0.02_260)] w-4 shrink-0">{i + 1}</span>
-                        <img src={g.headerImage ?? getHeaderImage(g.appid)} alt={g.name}
-                          className="w-12 h-7 rounded object-cover shrink-0" loading="lazy"
-                          onError={(e) => { (e.target as HTMLImageElement).src = getHeaderImage(g.appid); }} />
+                        <SteamImage appid={g.appid} name={g.name} headerImage={g.headerImage}
+                          className="w-12 h-7 rounded object-cover shrink-0" loading="lazy" />
                         <div className="min-w-0 flex-1">
                           <p className="text-xs font-medium text-white truncate">{g.name}</p>
                           <p className="text-xs text-[oklch(0.62_0.22_250)] font-mono">{formatNumber(g.ccu)}</p>

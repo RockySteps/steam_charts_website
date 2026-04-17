@@ -195,13 +195,19 @@
 
 ## Phase 6 — DO Deployment Improvements
 
-- [ ] Export Manus MySQL DB and import into DO server (migrate 12.8k games)
-- [ ] Fix image 404 infinite loop — validate header_image, fallback to correct Steam CDN URL
-- [ ] Add SEO paginated URL for Top Charts: /charts/top/1-50/, /charts/top/51-100/ etc.
-- [ ] Add SEO paginated URL for Genres: /genres/action/1-50/, /genres/action/51-100/ etc.
-- [ ] Fix genre page — show all games with scroll after genre selection, fix game count
-- [ ] Remove Admin login link from navbar
-- [ ] Fix review score display (show N/A or remove if data unavailable)
-- [ ] Add human-readable /sitemap page
-- [ ] Add XML SEO sitemap at /sitemap.xml with game/genre/chart URLs
-- [ ] Build and deploy all changes to DO server
+- [x] Export Manus MySQL DB and import into DO server (migrate 12.8k games)
+- [x] Fix image 404 infinite loop — validate header_image, fallback to correct Steam CDN URL
+- [x] Add SEO paginated URL for Top Charts: /charts/top/1-50/, /charts/top/51-100/ etc.
+- [x] Add SEO paginated URL for Genres: /genres/action/1-50/, /genres/action/51-100/ etc.
+- [x] Fix genre page — show all games with scroll after genre selection, fix game count
+- [x] Remove Admin login link from navbar
+- [x] Fix review score display (show N/A or remove if data unavailable)
+- [x] Add human-readable /sitemap page
+- [x] Add XML SEO sitemap at /sitemap.xml with game/genre/chart URLs
+- [x] Build and deploy all changes to DO server
+
+## Phase 6 — Gap Fixes
+
+- [x] Replace all remaining plain <img> usages in GameDetail with SteamImage component (hero banner, sidebar)
+- [x] Update review score display to show "N/A" text instead of em dash when data unavailable
+- [x] Deploy to DO server — all routes verified 200, 12,948 sitemap URLs, 12,907 games in DB
