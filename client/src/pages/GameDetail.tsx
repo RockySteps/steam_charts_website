@@ -144,7 +144,7 @@ export default function GameDetail() {
   return (
     <>
       <SEOHead
-        title={game ? `${game.name} — Player Stats, Reviews & Analytics` : "Game Analytics"}
+        title={game ? `${game.name} | Player Stats, Reviews and Analytics` : "Game Analytics"}
         description={game ? `Live player count, historical charts, user reviews, news, and system requirements for ${game.name} on Steam. Currently ${formatNumber(game.ccu)} players online.` : ""}
         image={game?.headerImage ?? undefined}
         url={`/game/${appid}`}
@@ -327,8 +327,6 @@ export default function GameDetail() {
               <HighchartsPlayerChart
                 appid={appid}
                 gameName={game?.name ?? ""}
-                currentPlayers={game?.ccu ?? 0}
-                peakPlayers={game?.peakPlayersAllTime ?? 0}
               />
             )}
 

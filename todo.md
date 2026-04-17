@@ -179,3 +179,16 @@
 - [x] Monthly Stats table: sortable by all columns (Month, Avg Players, Gain, % Gain, Peak Players) with asc/desc toggle
 - [x] Game Detail page tabs: Overview | Player Stats | Reviews | News | System Requirements
 - [x] Vitest tests for getGameNews (3), getFullMetadata (3 incl. sysreq fields), getReviewsV2 (4) — 59 total tests passing
+
+## Bug Fixes & Enhancements (Phase 5)
+- [x] Fix scroll-to-top on page navigation (currently loads at same scroll position)
+- [x] Fix dynamic per-game SEO titles server-side (view-source shows generic title, not game name)
+- [x] Remove em dash (—) from all page title templates
+- [x] Fix Highcharts accessibility module crash (TypeError: Cannot read properties of undefined reading 'enabled') that breaks all pages after admin login
+- [x] Add App ID numeric search support (e.g. searching "730" finds CS2 directly)
+- [x] Fix chart: show dual-line (Daily Avg Players + Daily Peak Players) with navigator/zoom bar
+- [x] Fix chart: "All" period should show data from game launch date, not just 1 year
+- [x] Fix monthly stats table: show all months from game launch, not just 1 month
+- [x] Fix Compare page: "+ Add Game" button always disabled — should open search
+- [x] Fix Compare page: chart invisible but tooltip works (OKLCH colors replaced with hex for Highcharts SVG rendering)
+- [x] Fix Compare page: stats comparison table should highlight winner per metric

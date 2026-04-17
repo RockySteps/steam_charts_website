@@ -60,7 +60,7 @@ export default function MonthlyStatsTable({ appid }: Props) {
   const [sortDir, setSortDir] = useState<SortDir>("desc");
 
   const { data, isLoading } = trpc.games.getMonthlyStats.useQuery(
-    { appid, limit: 36 },
+    { appid },
     { staleTime: 10 * 60 * 1000 }
   );
 

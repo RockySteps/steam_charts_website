@@ -20,7 +20,7 @@ import {
 } from "./db";
 import { getAppDetails as getSteamAppDetails, getCurrentPlayers, getGameNews, getGameReviews } from "./services/steamApi";
 import { getAppDetails as getSteamSpyDetails, getGamesByGenre } from "./services/steamSpyApi";
-import { generateHistoricalData } from "./services/steamChartsApi";
+import { generateHistoricalData, generateMonthlyStatsFromHistory } from "./services/steamChartsApi";
 import {
   initializeCrawler,
   startCrawler,
@@ -217,13 +217,14 @@ export const appRouter = router({
     getPlayerHistory: publicProcedure
       .input(z.object({
         appid: z.number(),
-        period: z.enum(["daily", "weekly", "monthly", "yearly"]).default("weekly"),
+        period: z.enum(["daily", "weekly", "monthly", "yearly", "all"]).default("weekly"),
       }))
       .query(async ({ input }) => {
         const game = await getGameByAppid(input.appid);
         const currentPlayers = game?.ccu ?? 1000;
         const peakPlayers = game?.peakPlayersAllTime ?? currentPlayers * 2;
-        const historyData = generateHistoricalData(input.appid, currentPlayers, peakPlayers);
+        const releaseDate = game?.releaseDate ?? null;
+        const historyData = generateHistoricalData(input.appid, currentPlayers, peakPlayers, releaseDate);
         return historyData[input.period];
       }),
 
@@ -231,10 +232,10 @@ export const appRouter = router({
      * Get monthly stats table (Avg Players, Gain, % Gain, Peak Players per month)
      */
     getMonthlyStats: publicProcedure
-      .input(z.object({ appid: z.number(), limit: z.number().min(1).max(60).default(24) }))
+      .input(z.object({ appid: z.number() }))
       .query(async ({ input }) => {
-        const dbStats = await getMonthlyStatsByAppid(input.appid, input.limit);
-
+        // First try DB (real crawled data)
+        const dbStats = await getMonthlyStatsByAppid(input.appid, 300);
         if (dbStats.length > 0) {
           return dbStats.map((s) => ({
             year: s.year,
@@ -247,53 +248,12 @@ export const appRouter = router({
             dataPoints: s.dataPoints ?? 0,
           }));
         }
-
-        // Generate synthetic monthly stats from historical data
+        // Fall back to synthetic data from launch date
         const game = await getGameByAppid(input.appid);
         const currentPlayers = game?.ccu ?? 500;
         const peakPlayers = game?.peakPlayersAllTime ?? currentPlayers * 3;
-        const historyData = generateHistoricalData(input.appid, currentPlayers, peakPlayers);
-
-        // Aggregate monthly data from the yearly view
-        const yearlyPoints = historyData.yearly;
-        const monthlyResult: Array<{
-          year: number; month: number; avgPlayers: number; peakPlayers: number;
-          minPlayers: number; gain: number; gainPercent: number; dataPoints: number;
-        }> = [];
-
-        const now = new Date();
-        for (let i = 0; i < Math.min(input.limit, 24); i++) {
-          const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-          const year = d.getFullYear();
-          const month = d.getMonth() + 1;
-
-          // Find nearby data point
-          const nearestPoint = yearlyPoints.reduce((best, pt) => {
-            const ptDate = new Date(pt.timestamp);
-            const ptDiff = Math.abs(ptDate.getTime() - d.getTime());
-            const bestDate = new Date(best.timestamp);
-            const bestDiff = Math.abs(bestDate.getTime() - d.getTime());
-            return ptDiff < bestDiff ? pt : best;
-          }, yearlyPoints[0]!);
-
-          const avg = nearestPoint?.players ?? currentPlayers;
-          const peak = Math.round(avg * (1 + Math.random() * 0.3));
-          const min = Math.round(avg * (0.6 + Math.random() * 0.2));
-
-          monthlyResult.push({ year, month, avgPlayers: avg, peakPlayers: peak, minPlayers: min, gain: 0, gainPercent: 0, dataPoints: 30 });
-        }
-
-        // Calculate gain vs previous month
-        for (let i = 0; i < monthlyResult.length - 1; i++) {
-          const curr = monthlyResult[i]!;
-          const prev = monthlyResult[i + 1]!;
-          curr.gain = Math.round((curr.avgPlayers - prev.avgPlayers) * 10) / 10;
-          curr.gainPercent = prev.avgPlayers > 0
-            ? Math.round(((curr.avgPlayers - prev.avgPlayers) / prev.avgPlayers) * 10000) / 100
-            : 0;
-        }
-
-        return monthlyResult;
+        const releaseDate = game?.releaseDate ?? null;
+        return generateMonthlyStatsFromHistory(input.appid, currentPlayers, peakPlayers, releaseDate);
       }),
 
     /**

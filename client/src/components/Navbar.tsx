@@ -32,10 +32,15 @@ export default function Navbar() {
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
-    if (searchQuery.trim()) {
-      navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
-      setSearchQuery("");
+    const q = searchQuery.trim();
+    if (!q) return;
+    // If query is a pure number, treat it as an App ID and navigate directly
+    if (/^\d+$/.test(q)) {
+      navigate(`/game/${q}`);
+    } else {
+      navigate(`/search?q=${encodeURIComponent(q)}`);
     }
+    setSearchQuery("");
   }
 
   return (

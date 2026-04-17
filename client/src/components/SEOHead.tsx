@@ -10,9 +10,11 @@ interface SEOHeadProps {
 }
 
 const SITE_NAME = "SteamPulse";
-const DEFAULT_TITLE = "SteamPulse — Live Steam Game Analytics & Player Statistics";
-const DEFAULT_DESC = "Real-time Steam game player counts, top charts, trending games, historical analytics, genre explorer, and game comparison tools. The most comprehensive Steam analytics platform.";
-const DEFAULT_IMAGE = "https://cdn.cloudflare.steamstatic.com/store/home/store_home_share.jpg";
+const DEFAULT_TITLE = "SteamPulse | Live Steam Game Analytics and Player Statistics";
+const DEFAULT_DESC =
+  "Real-time Steam game player counts, top charts, trending games, historical analytics, genre explorer, and game comparison tools. The most comprehensive Steam analytics platform.";
+const DEFAULT_IMAGE =
+  "https://cdn.cloudflare.steamstatic.com/store/home/store_home_share.jpg";
 
 export default function SEOHead({
   title,
@@ -22,14 +24,23 @@ export default function SEOHead({
   type = "website",
   jsonLd,
 }: SEOHeadProps) {
-  const fullTitle = title ? `${title} — ${SITE_NAME}` : DEFAULT_TITLE;
-  const canonicalUrl = url ? `https://steampulse.gg${url}` : typeof window !== "undefined" ? window.location.href : "";
+  // Use pipe separator instead of em dash — avoids rendering issues
+  const fullTitle = title ? `${title} | ${SITE_NAME}` : DEFAULT_TITLE;
+  const canonicalUrl =
+    url
+      ? `${typeof window !== "undefined" ? window.location.origin : ""}${url}`
+      : typeof window !== "undefined"
+      ? window.location.href
+      : "";
 
   useEffect(() => {
+    // Update <title>
     document.title = fullTitle;
 
     const setMeta = (name: string, content: string, isProperty = false) => {
-      const selector = isProperty ? `meta[property="${name}"]` : `meta[name="${name}"]`;
+      const selector = isProperty
+        ? `meta[property="${name}"]`
+        : `meta[name="${name}"]`;
       let el = document.querySelector(selector) as HTMLMetaElement | null;
       if (!el) {
         el = document.createElement("meta");
@@ -54,7 +65,9 @@ export default function SEOHead({
 
     // Canonical link
     if (canonicalUrl) {
-      let link = document.querySelector('link[rel="canonical"]') as HTMLLinkElement | null;
+      let link = document.querySelector(
+        'link[rel="canonical"]'
+      ) as HTMLLinkElement | null;
       if (!link) {
         link = document.createElement("link");
         link.setAttribute("rel", "canonical");
@@ -63,9 +76,11 @@ export default function SEOHead({
       link.setAttribute("href", canonicalUrl);
     }
 
-    // JSON-LD structured data
+    // JSON-LD structured data — one script per page, replaced on navigation
     if (jsonLd) {
-      let script = document.querySelector('script[data-seo-jsonld]') as HTMLScriptElement | null;
+      let script = document.querySelector(
+        'script[data-seo-jsonld]'
+      ) as HTMLScriptElement | null;
       if (!script) {
         script = document.createElement("script");
         script.setAttribute("type", "application/ld+json");
