@@ -67,6 +67,8 @@ export default function Footer() {
                 { href: "https://store.steampowered.com", label: "Steam Store", external: true },
                 { href: "https://steamspy.com", label: "SteamSpy", external: true },
                 { href: "https://developer.valvesoftware.com/wiki/Steam_Web_API", label: "Steam API", external: true },
+                { href: "/sitemap", label: "Site Map", external: false },
+                { href: "/sitemap.xml", label: "XML Sitemap", external: true },
               ].map(({ href, label, external }) => (
                 <li key={href}>
                   <a
@@ -94,6 +96,7 @@ export default function Footer() {
               <Zap className="w-3 h-3 text-[oklch(0.72_0.2_145)]" />
               Live data · Updates hourly
             </div>
+            <Link href="/sitemap" className="text-xs text-[oklch(0.38_0.02_260)] hover:text-[oklch(0.62_0.22_250)] transition-colors">Sitemap</Link>
             <div className="flex items-center gap-2">
               <a href="https://github.com" target="_blank" rel="noopener noreferrer" className="text-[oklch(0.38_0.02_260)] hover:text-[oklch(0.62_0.22_250)] transition-colors">
                 <Github className="w-4 h-4" />

@@ -14,7 +14,7 @@ import Trending from "./pages/Trending";
 import Genres from "./pages/Genres";
 import Compare from "./pages/Compare";
 import SearchPage from "./pages/SearchPage";
-import AdminDashboard from "./pages/AdminDashboard";
+import SitemapPage from "./pages/SitemapPage";
 
 /** Scroll to top whenever the route changes */
 function ScrollToTop() {
@@ -43,13 +43,18 @@ function Router() {
     <ScrollToTop />
     <Switch>
       <Route path="/" component={() => <Layout><Home /></Layout>} />
+      {/* SEO-friendly paginated charts: /charts/top/1-50/ */}
+      <Route path="/charts/top/:range" component={() => <Layout><Charts /></Layout>} />
       <Route path="/charts" component={() => <Layout><Charts /></Layout>} />
       <Route path="/game/:appid" component={() => <Layout><GameDetail /></Layout>} />
       <Route path="/trending" component={() => <Layout><Trending /></Layout>} />
+      {/* SEO-friendly paginated genres: /genres/action/1-50/ */}
+      <Route path="/genres/:genre/:range" component={() => <Layout><Genres /></Layout>} />
+      <Route path="/genres/:genre" component={() => <Layout><Genres /></Layout>} />
       <Route path="/genres" component={() => <Layout><Genres /></Layout>} />
       <Route path="/compare" component={() => <Layout><Compare /></Layout>} />
       <Route path="/search" component={() => <Layout><SearchPage /></Layout>} />
-      <Route path="/admin" component={() => <Layout><AdminDashboard /></Layout>} />
+      <Route path="/sitemap" component={() => <Layout><SitemapPage /></Layout>} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>

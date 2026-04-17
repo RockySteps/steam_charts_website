@@ -6,6 +6,7 @@ import { systemRouter } from "./_core/systemRouter";
 import {
   getGameByAppid,
   getGamesByGenreFromDb,
+  getGamesByGenreCount,
   getMonthlyStatsByAppid,
   getRecentCrawlLogs,
   getTopGamesByAllTimePeak,
@@ -348,13 +349,18 @@ export const appRouter = router({
       }),
 
     getByGenre: publicProcedure
-      .input(z.object({ genre: z.string(), limit: z.number().default(50) }))
+      .input(z.object({ genre: z.string(), limit: z.number().default(50), offset: z.number().default(0) }))
       .query(async ({ input }) => {
-        const dbGames = await getGamesByGenreFromDb(input.genre, input.limit);
-        if (dbGames.length >= 10) return dbGames;
+        const [dbGames, total] = await Promise.all([
+          getGamesByGenreFromDb(input.genre, input.limit, input.offset),
+          getGamesByGenreCount(input.genre),
+        ]);
+        if (dbGames.length >= 10) return { games: dbGames, total };
+        // Fallback to SteamSpy only on first page with very few DB results
+        if (input.offset > 0) return { games: dbGames, total };
 
         const apiGames = await getGamesByGenre(input.genre);
-        return apiGames.slice(0, input.limit).map((g) => ({
+        const mappedApiGames = apiGames.slice(0, input.limit).map((g) => ({
           appid: g.appid,
           name: g.name,
           developer: g.developer,
@@ -394,6 +400,7 @@ export const appRouter = router({
           createdAt: new Date(),
           id: 0,
         }));
+        return { games: mappedApiGames, total: mappedApiGames.length };
       }),
 
     getRecords: publicProcedure.query(async () => {

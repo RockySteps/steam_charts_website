@@ -192,3 +192,16 @@
 - [x] Fix Compare page: "+ Add Game" button always disabled — should open search
 - [x] Fix Compare page: chart invisible but tooltip works (OKLCH colors replaced with hex for Highcharts SVG rendering)
 - [x] Fix Compare page: stats comparison table should highlight winner per metric
+
+## Phase 6 — DO Deployment Improvements
+
+- [ ] Export Manus MySQL DB and import into DO server (migrate 12.8k games)
+- [ ] Fix image 404 infinite loop — validate header_image, fallback to correct Steam CDN URL
+- [ ] Add SEO paginated URL for Top Charts: /charts/top/1-50/, /charts/top/51-100/ etc.
+- [ ] Add SEO paginated URL for Genres: /genres/action/1-50/, /genres/action/51-100/ etc.
+- [ ] Fix genre page — show all games with scroll after genre selection, fix game count
+- [ ] Remove Admin login link from navbar
+- [ ] Fix review score display (show N/A or remove if data unavailable)
+- [ ] Add human-readable /sitemap page
+- [ ] Add XML SEO sitemap at /sitemap.xml with game/genre/chart URLs
+- [ ] Build and deploy all changes to DO server

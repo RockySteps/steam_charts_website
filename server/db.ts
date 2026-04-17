@@ -80,7 +80,7 @@ export async function getGameByAppid(appid: number) {
 export async function getTopGamesByPlayers(limit = 100) {
   const db = await getDb();
   if (!db) return [];
-  return db.select().from(gameCache).orderBy(desc(gameCache.ccu)).limit(limit);
+  return db.select().from(gameCache).orderBy(desc(gameCache.ccu)).limit(Math.min(limit, 15000));
 }
 
 export async function getTopGamesByOwnersMax(limit = 100) {
@@ -122,13 +122,22 @@ export async function searchGames(opts: {
   return query.orderBy(desc(gameCache.ccu)).limit(opts.limit ?? 50).offset(opts.offset ?? 0);
 }
 
-export async function getGamesByGenreFromDb(genre: string, limit = 50) {
+export async function getGamesByGenreFromDb(genre: string, limit = 50, offset = 0) {
   const db = await getDb();
   if (!db) return [];
   return db.select().from(gameCache)
     .where(like(gameCache.genre, `%${genre}%`))
     .orderBy(desc(gameCache.ccu))
-    .limit(limit);
+    .limit(limit)
+    .offset(offset);
+}
+
+export async function getGamesByGenreCount(genre: string): Promise<number> {
+  const db = await getDb();
+  if (!db) return 0;
+  const result = await db.select({ count: sql<number>`count(*)` }).from(gameCache)
+    .where(like(gameCache.genre, `%${genre}%`));
+  return result[0]?.count ?? 0;
 }
 
 export async function getTotalGamesCount() {

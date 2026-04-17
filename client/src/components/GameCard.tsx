@@ -1,6 +1,7 @@
 import { Link } from "wouter";
-import { Users, TrendingUp, TrendingDown, Star } from "lucide-react";
-import { cn, formatNumber, formatPrice, getHeaderImage } from "@/lib/utils";
+import { Users, TrendingUp, TrendingDown } from "lucide-react";
+import { cn, formatNumber, formatPrice } from "@/lib/utils";
+import SteamImage from "./SteamImage";
 
 interface GameCardProps {
   appid: number;
@@ -35,8 +36,6 @@ export default function GameCard({
   className,
   variant = "default",
 }: GameCardProps) {
-  const imgSrc = headerImage || getHeaderImage(appid);
-
   if (variant === "compact") {
     return (
       <Link href={`/game/${appid}`}>
@@ -47,12 +46,12 @@ export default function GameCard({
           {rank && (
             <span className="rank-badge text-[oklch(0.45_0.02_260)] w-6 text-center shrink-0">{rank}</span>
           )}
-          <img
-            src={imgSrc}
-            alt={name}
+          <SteamImage
+            appid={appid}
+            name={name}
+            headerImage={headerImage}
             className="w-16 h-9 rounded object-cover shrink-0 bg-[oklch(0.14_0.015_260)]"
             loading="lazy"
-            onError={(e) => { (e.target as HTMLImageElement).src = `https://cdn.cloudflare.steamstatic.com/steam/apps/${appid}/header.jpg`; }}
           />
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-white truncate">{name}</p>
@@ -77,12 +76,12 @@ export default function GameCard({
       )}>
         {/* Image */}
         <div className="relative aspect-[460/215] overflow-hidden">
-          <img
-            src={imgSrc}
-            alt={name}
+          <SteamImage
+            appid={appid}
+            name={name}
+            headerImage={headerImage}
             className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
             loading="lazy"
-            onError={(e) => { (e.target as HTMLImageElement).src = `https://cdn.cloudflare.steamstatic.com/steam/apps/${appid}/header.jpg`; }}
           />
           {/* Gradient overlay */}
           <div className="absolute inset-0 bg-gradient-to-t from-[oklch(0.08_0.01_260)] via-transparent to-transparent opacity-80" />

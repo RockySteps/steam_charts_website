@@ -1,16 +1,17 @@
-import { useState } from "react";
-import { Link } from "wouter";
+import { useState, useMemo } from "react";
+import { Link, useParams, useLocation } from "wouter";
 import {
   ChevronUp, ChevronDown, Minus, Filter, ArrowUpDown,
-  Users, Trophy, Clock, TrendingUp, ExternalLink, RefreshCw
+  Users, Trophy, Clock, TrendingUp, ExternalLink, RefreshCw,
+  ChevronLeft, ChevronRight
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { trpc } from "@/lib/trpc";
 import AdZone from "@/components/AdZone";
 import SEOHead from "@/components/SEOHead";
-import { formatNumber, formatPrice, getHeaderImage, getSteamStoreUrl } from "@/lib/utils";
+import SteamImage from "@/components/SteamImage";
+import { formatNumber, formatPrice, getSteamStoreUrl } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 
 const GENRES = ["Action", "Adventure", "RPG", "Strategy", "Simulation", "Sports", "Racing", "Indie", "Casual", "Multiplayer"];
@@ -20,18 +21,31 @@ const SORT_OPTIONS = [
   { value: "ownersMax", label: "Most Owned", icon: TrendingUp },
   { value: "averagePlaytimeForever", label: "Avg Playtime", icon: Clock },
 ];
+const PAGE_SIZE = 50;
+
+function parseRange(rangeStr: string | undefined): { start: number; end: number } {
+  if (!rangeStr) return { start: 1, end: PAGE_SIZE };
+  const match = rangeStr.match(/^(\d+)-(\d+)$/);
+  if (!match) return { start: 1, end: PAGE_SIZE };
+  return { start: parseInt(match[1], 10), end: parseInt(match[2], 10) };
+}
 
 export default function Charts() {
+  const params = useParams<{ range?: string }>();
+  const [, navigate] = useLocation();
   const [sortBy, setSortBy] = useState<"ccu" | "peakPlayersAllTime" | "ownersMax" | "averagePlaytimeForever">("ccu");
   const [genreFilter, setGenreFilter] = useState<string>("");
-  const [page, setPage] = useState(0);
-  const [rowsPerPage] = useState(50);
   const [nameFilter, setNameFilter] = useState("");
+
+  const { start, end } = parseRange(params.range);
+  const offset = start - 1;
+  const limit = end - offset;
+  const currentPage = Math.ceil(start / PAGE_SIZE);
 
   const { data: games, isLoading, refetch } = trpc.games.getTopCharts.useQuery({
     sortBy,
-    limit: rowsPerPage,
-    offset: page * rowsPerPage,
+    limit,
+    offset,
     genre: genreFilter || undefined,
   });
 
@@ -39,17 +53,24 @@ export default function Charts() {
     onSuccess: () => setTimeout(() => refetch(), 3000),
   });
 
-  const filtered = games?.filter((g) =>
-    !nameFilter || g.name.toLowerCase().includes(nameFilter.toLowerCase())
-  ) ?? [];
+  const filtered = useMemo(() =>
+    games?.filter((g) => !nameFilter || g.name.toLowerCase().includes(nameFilter.toLowerCase())) ?? [],
+    [games, nameFilter]
+  );
+
+  function getPageUrl(page: number) {
+    const s = (page - 1) * PAGE_SIZE + 1;
+    const e = page * PAGE_SIZE;
+    return `/charts/top/${s}-${e}/`;
+  }
+
+  const seoTitle = `Top Steam Charts ${start}–${end} | Live Player Rankings | SteamPulse`;
+  const seoDesc = `Real-time Steam game rankings ${start}–${end} sorted by current players, all-time peak, and ownership. Updated hourly.`;
+  const seoUrl = `/charts/top/${start}-${end}/`;
 
   return (
     <>
-      <SEOHead
-        title="Top Steam Charts — Live Player Rankings"
-        description="Real-time Steam game rankings sorted by current players, all-time peak, and ownership. Filter by genre and explore the most played games on Steam."
-        url="/charts"
-      />
+      <SEOHead title={seoTitle} description={seoDesc} url={seoUrl} />
       <div className="page-enter container py-8">
         {/* Header */}
         <div className="mb-8">
@@ -71,32 +92,27 @@ export default function Charts() {
           </div>
         </div>
 
-        {/* Ad */}
         <AdZone size="leaderboard" className="mb-6" />
 
         {/* Controls */}
         <div className="flex flex-wrap gap-3 mb-6">
-          {/* Sort */}
           <div className="flex items-center gap-2">
             <ArrowUpDown className="w-4 h-4 text-[oklch(0.5_0.02_260)]" />
-            <Select value={sortBy} onValueChange={(v) => { setSortBy(v as typeof sortBy); setPage(0); }}>
+            <Select value={sortBy} onValueChange={(v) => { setSortBy(v as typeof sortBy); navigate("/charts/top/1-50/"); }}>
               <SelectTrigger className="w-44 bg-[oklch(0.13_0.015_260)] border-[oklch(0.22_0.015_260)] text-sm">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="bg-[oklch(0.13_0.015_260)] border-[oklch(0.22_0.015_260)]">
                 {SORT_OPTIONS.map((opt) => (
-                  <SelectItem key={opt.value} value={opt.value} className="text-sm">
-                    {opt.label}
-                  </SelectItem>
+                  <SelectItem key={opt.value} value={opt.value} className="text-sm">{opt.label}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
 
-          {/* Genre filter */}
           <div className="flex items-center gap-2">
             <Filter className="w-4 h-4 text-[oklch(0.5_0.02_260)]" />
-            <Select value={genreFilter || "all"} onValueChange={(v) => { setGenreFilter(v === "all" ? "" : v); setPage(0); }}>
+            <Select value={genreFilter || "all"} onValueChange={(v) => { setGenreFilter(v === "all" ? "" : v); navigate("/charts/top/1-50/"); }}>
               <SelectTrigger className="w-36 bg-[oklch(0.13_0.015_260)] border-[oklch(0.22_0.015_260)] text-sm">
                 <SelectValue placeholder="All Genres" />
               </SelectTrigger>
@@ -107,7 +123,6 @@ export default function Charts() {
             </Select>
           </div>
 
-          {/* Name search */}
           <Input
             placeholder="Filter by name..."
             value={nameFilter}
@@ -116,7 +131,7 @@ export default function Charts() {
           />
 
           <div className="ml-auto text-sm text-[oklch(0.45_0.02_260)] self-center">
-            {filtered.length} games
+            Showing {start}–{end}
           </div>
         </div>
 
@@ -125,7 +140,7 @@ export default function Charts() {
           {SORT_OPTIONS.map(({ value, label, icon: Icon }) => (
             <button
               key={value}
-              onClick={() => { setSortBy(value as typeof sortBy); setPage(0); }}
+              onClick={() => { setSortBy(value as typeof sortBy); navigate("/charts/top/1-50/"); }}
               className={cn(
                 "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
                 sortBy === value
@@ -141,7 +156,6 @@ export default function Charts() {
 
         {/* Table */}
         <div className="rounded-xl border border-[oklch(0.18_0.015_260)] bg-[oklch(0.10_0.012_260)] overflow-hidden mb-6">
-          {/* Header */}
           <div className="hidden md:grid grid-cols-[3rem_1fr_10rem_10rem_10rem_8rem_6rem] gap-2 px-4 py-3 border-b border-[oklch(0.16_0.015_260)] text-xs text-[oklch(0.42_0.02_260)] uppercase tracking-wider font-mono">
             <span>Rank</span>
             <span>Game</span>
@@ -163,26 +177,20 @@ export default function Charts() {
                     <div className="shimmer h-3 w-24 rounded" />
                   </div>
                   <div className="shimmer h-4 w-16 rounded" />
-                  <div className="shimmer h-4 w-16 rounded" />
                 </div>
               ))}
             </div>
           ) : (
             <div className="divide-y divide-[oklch(0.12_0.015_260)]">
               {filtered.map((game, idx) => {
-                const rank = page * rowsPerPage + idx + 1;
+                const rank = offset + idx + 1;
                 const change = ((game.appid % 60) - 30) * 0.7;
-                const displayValue = sortBy === "ccu" ? game.ccu :
-                  sortBy === "peakPlayersAllTime" ? game.peakPlayersAllTime :
-                  sortBy === "ownersMax" ? game.ownersMax :
-                  game.averagePlaytimeForever;
 
                 return (
                   <div
                     key={game.appid}
                     className="group grid grid-cols-[3rem_1fr] md:grid-cols-[3rem_1fr_10rem_10rem_10rem_8rem_6rem] gap-2 px-4 py-3 items-center hover:bg-[oklch(0.13_0.015_260)] transition-colors"
                   >
-                    {/* Rank */}
                     <span className={cn(
                       "rank-badge text-center",
                       rank === 1 ? "text-[oklch(0.78_0.18_75)] text-base" :
@@ -193,14 +201,13 @@ export default function Charts() {
                       {rank}
                     </span>
 
-                    {/* Game */}
                     <Link href={`/game/${game.appid}`} className="flex items-center gap-3 min-w-0">
-                      <img
-                        src={game.headerImage ?? getHeaderImage(game.appid)}
-                        alt={game.name}
+                      <SteamImage
+                        appid={game.appid}
+                        name={game.name}
+                        headerImage={game.headerImage}
                         className="w-20 h-11 rounded object-cover shrink-0 bg-[oklch(0.14_0.015_260)]"
                         loading="lazy"
-                        onError={(e) => { (e.target as HTMLImageElement).src = getHeaderImage(game.appid); }}
                       />
                       <div className="min-w-0">
                         <p className="text-sm font-semibold text-white truncate group-hover:text-[oklch(0.62_0.22_250)] transition-colors">
@@ -225,40 +232,27 @@ export default function Charts() {
                       </div>
                     </Link>
 
-                    {/* Current players */}
                     <div className="hidden md:block text-right">
-                      <p className={cn(
-                        "text-sm font-mono font-semibold",
-                        sortBy === "ccu" ? "text-[oklch(0.62_0.22_250)]" : "text-[oklch(0.55_0.02_260)]"
-                      )}>
+                      <p className={cn("text-sm font-mono font-semibold", sortBy === "ccu" ? "text-[oklch(0.62_0.22_250)]" : "text-[oklch(0.55_0.02_260)]")}>
                         {formatNumber(game.ccu)}
                       </p>
                       <p className="text-xs text-[oklch(0.38_0.02_260)]">playing</p>
                     </div>
 
-                    {/* Peak */}
                     <div className="hidden md:block text-right">
-                      <p className={cn(
-                        "text-sm font-mono font-semibold",
-                        sortBy === "peakPlayersAllTime" ? "text-[oklch(0.78_0.18_75)]" : "text-[oklch(0.55_0.02_260)]"
-                      )}>
+                      <p className={cn("text-sm font-mono font-semibold", sortBy === "peakPlayersAllTime" ? "text-[oklch(0.78_0.18_75)]" : "text-[oklch(0.55_0.02_260)]")}>
                         {formatNumber(game.peakPlayersAllTime)}
                       </p>
                       <p className="text-xs text-[oklch(0.38_0.02_260)]">all-time</p>
                     </div>
 
-                    {/* Owners */}
                     <div className="hidden md:block text-right">
-                      <p className={cn(
-                        "text-sm font-mono",
-                        sortBy === "ownersMax" ? "text-[oklch(0.7_0.18_195)]" : "text-[oklch(0.5_0.02_260)]"
-                      )}>
+                      <p className={cn("text-sm font-mono", sortBy === "ownersMax" ? "text-[oklch(0.7_0.18_195)]" : "text-[oklch(0.5_0.02_260)]")}>
                         {formatNumber(game.ownersMax)}
                       </p>
                       <p className="text-xs text-[oklch(0.38_0.02_260)]">owners</p>
                     </div>
 
-                    {/* Price */}
                     <div className="hidden md:block text-right">
                       {game.isFree ? (
                         <span className="text-sm font-semibold text-[oklch(0.72_0.2_145)]">Free</span>
@@ -274,7 +268,6 @@ export default function Charts() {
                       )}
                     </div>
 
-                    {/* 24h change */}
                     <div className="hidden md:flex items-center justify-end gap-1">
                       {change > 0 ? (
                         <ChevronUp className="w-3.5 h-3.5 text-[oklch(0.72_0.2_145)]" />
@@ -300,34 +293,39 @@ export default function Charts() {
         </div>
 
         {/* Pagination */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between mb-8">
           <p className="text-sm text-[oklch(0.45_0.02_260)]">
-            Showing {page * rowsPerPage + 1}–{Math.min((page + 1) * rowsPerPage, (games?.length ?? 0) + page * rowsPerPage)} of top 100
+            Showing {start}–{end} of top charts
           </p>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={page === 0}
-              onClick={() => setPage(p => p - 1)}
-              className="border-[oklch(0.22_0.015_260)] text-[oklch(0.6_0.02_260)] hover:bg-[oklch(0.14_0.015_260)]"
-            >
-              Previous
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={(games?.length ?? 0) < rowsPerPage}
-              onClick={() => setPage(p => p + 1)}
-              className="border-[oklch(0.22_0.015_260)] text-[oklch(0.6_0.02_260)] hover:bg-[oklch(0.14_0.015_260)]"
-            >
-              Next
-            </Button>
+          <div className="flex gap-2 flex-wrap">
+            {currentPage > 1 && (
+              <Link href={getPageUrl(currentPage - 1)}>
+                <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-[oklch(0.13_0.015_260)] text-[oklch(0.5_0.02_260)] border border-[oklch(0.18_0.015_260)] hover:text-white hover:border-[oklch(0.25_0.02_260)] transition-all">
+                  <ChevronLeft className="w-3.5 h-3.5" /> Previous
+                </button>
+              </Link>
+            )}
+            {[1, 2, 3, 4].map((page) => (
+              <Link key={page} href={getPageUrl(page)}>
+                <button className={cn(
+                  "px-3 py-1.5 rounded-lg text-xs font-medium transition-all border",
+                  page === currentPage
+                    ? "bg-[oklch(0.62_0.22_250/0.15)] text-[oklch(0.62_0.22_250)] border-[oklch(0.62_0.22_250/0.3)]"
+                    : "bg-[oklch(0.13_0.015_260)] text-[oklch(0.5_0.02_260)] border-[oklch(0.18_0.015_260)] hover:text-white hover:border-[oklch(0.25_0.02_260)]"
+                )}>
+                  {(page - 1) * PAGE_SIZE + 1}–{page * PAGE_SIZE}
+                </button>
+              </Link>
+            ))}
+            <Link href={getPageUrl(currentPage + 1)}>
+              <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-[oklch(0.13_0.015_260)] text-[oklch(0.5_0.02_260)] border border-[oklch(0.18_0.015_260)] hover:text-white hover:border-[oklch(0.25_0.02_260)] transition-all">
+                Next <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </Link>
           </div>
         </div>
 
-        {/* Bottom ad */}
-        <AdZone size="leaderboard" className="mt-8" />
+        <AdZone size="leaderboard" className="mt-2" />
       </div>
     </>
   );
